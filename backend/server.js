@@ -8,7 +8,7 @@ const Application = require('./models/Application');
 const app = express();
 
 app.use(cors({
-  origin: 'https://club-website-nhm2-5wyr6k8a2-parthagrawal-07s-projects.vercel.app' 
+  origin: 'https://club-website-eta.vercel.app' 
 }));
 
 // Middleware
