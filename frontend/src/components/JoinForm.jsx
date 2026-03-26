@@ -1,3 +1,5 @@
+// V2 - Updated Backend URL
+
 import { useState } from 'react';
 
 export default function JoinForm() {
