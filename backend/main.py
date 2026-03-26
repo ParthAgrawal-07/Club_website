@@ -23,11 +23,11 @@ MONGO_URI = os.getenv("DATABASE_URL")
 client = AsyncIOMotorClient(MONGO_URI)
 
 # This selects the 'ai_club_db' database
-db = client.ai_club_db 
+db = client.Cluster0
 
 # This selects the 'events' collection (your "event folder")
 # You can also use db.application for your other data
-events_collection = db.events 
+events_collection = db.Events 
 
 # 2. Gemini AI Setup
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
