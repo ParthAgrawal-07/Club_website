@@ -24,7 +24,7 @@ export default function JoinForm() {
 
     try {
       // 1. The Fetch Request
-     const response = await fetch('https://neuralnode-backend.vercel.app/api/apply', {
+     const response = await fetch('https://club-website-7aay.vercel.app/api/apply', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json', // Tell the server we are sending JSON
