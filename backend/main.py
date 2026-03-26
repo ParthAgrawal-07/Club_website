@@ -88,3 +88,22 @@ async def club_chat(request: ChatRequest):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+# Add 'applications' to your collections at the top
+apps_collection = db.applications
+
+# 6. Route: Get All Applications (Admin Only)
+@app.get("/api/admin/applications")
+async def get_applications():
+    try:
+        # Fetch all applications, newest first
+        apps = await apps_collection.find().sort("created_at", -1).to_list(100)
+        
+        # Convert MongoDB '_id' to string so React can read it
+        for app in apps:
+            app["_id"] = str(app["_id"])
+            
+        return apps
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Could not fetch applications")
