@@ -1,6 +1,8 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const cors = require('cors');
+app.use(cors({
+  origin: 'https://club-website-nhm2-ls7vkewa8-parthagrawal-07s-projects.vercel.app' 
+}));
 require('dotenv').config();
 
 const Application = require('./models/Application');
