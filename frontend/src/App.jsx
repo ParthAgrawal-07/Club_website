@@ -7,6 +7,28 @@ import Projects from './components/Projects';
 import { Team, Resources, Blog, Footer } from './components/StaticSections';
 import JoinForm from './components/JoinForm';
 import AdminDashboard from './components/AdminDashboard'; 
+import Chatbot from './components/Chatbot'; // Import the new component
+
+function App() {
+  return (
+    <Router>
+      <div className="app-container">
+        <BackgroundCanvas />
+        <Navbar />
+
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/admin-portal-verify" element={<AdminDashboard />} />
+        </Routes>
+
+        <Footer />
+        
+        {/* ── ADD THE CHATBOT HERE ── */}
+        <Chatbot /> 
+      </div>
+    </Router>
+  );
+}
 
 // 1. Define the LandingPage component FIRST so App can find it
 const LandingPage = () => (
