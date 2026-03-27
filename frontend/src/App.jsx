@@ -8,6 +8,18 @@ import { Team, Resources, Blog, Footer } from './components/StaticSections';
 import JoinForm from './components/JoinForm';
 import AdminDashboard from './components/AdminDashboard'; 
 
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/admin-portal-verify" element={<AdminDashboard />} />
+      </Routes>
+    </Router>
+  );
+}
+
 // 1. Create a component for your main website content
 const LandingPage = () => (
   <>
