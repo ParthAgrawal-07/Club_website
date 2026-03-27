@@ -1,106 +1,92 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, Users, Database, ArrowLeft, Loader2, Award, Zap } from 'lucide-react';
+import React, { useState } from 'react';
+import { Zap, Users, Database, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('events');
-  const [loading, setLoading] = useState(false);
-  const [apps, setApps] = useState([]);
 
-  // Fetch Logic
-  useEffect(() => {
-    if (activeTab === 'apps') {
-      fetch('http://localhost:8000/api/admin/applications')
-        .then(res => res.json())
-        .then(data => setApps(data))
-        .catch(err => console.error("Cluster connection failed:", err));
-    }
-  }, [activeTab]);
+  // Inline style for the background to ensure it's never white
+  const pageStyle = {
+    backgroundColor: '#050810',
+    minHeight: '100vh',
+    paddingTop: '120px',
+    paddingBottom: '60px',
+    color: '#e2eaff'
+  };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white pt-28 pb-12 px-6">
-      <div className="max-w-5xl mx-auto">
+    <div style={pageStyle}>
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 20px' }}>
         
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-6">
-          <div className="space-y-1">
-            <h1 className="text-4xl font-black tracking-tighter text-blue-500 uppercase">
-              Admin <span className="text-white">Terminal</span>
-            </h1>
-            <p className="text-slate-400 font-medium">NeuralNode System Operations</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+          <div>
+            <h1 style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '32px', color: '#3b82f6' }}>COMMAND CENTER</h1>
+            <p style={{ color: '#6b7fa8', fontSize: '14px' }}>System Administration & Node Management</p>
           </div>
-          <Link to="/" className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 px-5 py-2 rounded-full transition-all text-sm">
-            <ArrowLeft size={16} /> Return to Home
+          <Link to="/" className="btn-outline" style={{ padding: '8px 16px', fontSize: '12px' }}>
+            <ArrowLeft size={14} style={{ marginRight: '8px' }} /> Return
           </Link>
         </div>
 
-        {/* Dashboard Grid */}
-        <div className="glass-card rounded-3xl overflow-hidden shadow-2xl">
-          
-          {/* Navigation */}
-          <div className="flex border-b border-white/10 bg-black/40">
+        {/* Dashboard Box */}
+        <div className="admin-glass">
+          {/* Tabs */}
+          <div style={{ display: 'flex', borderBottom: '1px solid rgba(99,179,255,0.12)' }}>
             <button 
               onClick={() => setActiveTab('events')}
-              className={`flex-1 p-6 flex items-center justify-center gap-3 font-bold transition-all ${activeTab === 'events' ? 'bg-blue-600/10 text-blue-400 border-b-2 border-blue-500' : 'text-slate-500 hover:bg-white/5'}`}
+              style={{ 
+                flex: 1, padding: '20px', border: 'none', background: activeTab === 'events' ? 'rgba(59,130,246,0.1)' : 'transparent',
+                color: activeTab === 'events' ? '#3b82f6' : '#6b7fa8', fontWeight: 'bold', cursor: 'pointer'
+              }}
             >
-              <Zap size={20} /> Event Post
+              <Zap size={18} style={{ marginBottom: '-4px', marginRight: '8px' }} /> Update Events
             </button>
             <button 
               onClick={() => setActiveTab('apps')}
-              className={`flex-1 p-6 flex items-center justify-center gap-3 font-bold transition-all ${activeTab === 'apps' ? 'bg-blue-600/10 text-blue-400 border-b-2 border-blue-500' : 'text-slate-500 hover:bg-white/5'}`}
+              style={{ 
+                flex: 1, padding: '20px', border: 'none', background: activeTab === 'apps' ? 'rgba(59,130,246,0.1)' : 'transparent',
+                color: activeTab === 'apps' ? '#3b82f6' : '#6b7fa8', fontWeight: 'bold', cursor: 'pointer'
+              }}
             >
-              <Users size={20} /> Applicants
+              <Users size={18} style={{ marginBottom: '-4px', marginRight: '8px' }} /> Review Applicants
             </button>
           </div>
 
-          <div className="p-8 md:p-12">
+          {/* Form Content */}
+          <div style={{ padding: '40px' }}>
             {activeTab === 'events' ? (
-              <div className="max-w-2xl mx-auto space-y-8">
-                <div className="grid gap-6">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-blue-400 uppercase tracking-widest">Event Title</label>
-                    <input type="text" placeholder="AI Workshop..." className="w-full bg-black/50 border border-white/10 p-4 rounded-xl focus:border-blue-500 outline-none" />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div className="form-group">
+                  <label>EVENT IDENTITY</label>
+                  <input type="text" className="admin-input" placeholder="e.g. Neural Summit 2026" />
+                </div>
+                
+                <div style={{ display: 'flex', gap: '20px' }}>
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label>TIMESTAMP</label>
+                    <input type="date" className="admin-input" />
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-blue-400 uppercase tracking-widest">Date</label>
-                      <input type="date" className="w-full bg-black/50 border border-white/10 p-4 rounded-xl outline-none" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-blue-400 uppercase tracking-widest">Winner</label>
-                      <input type="text" placeholder="Name..." className="w-full bg-black/50 border border-white/10 p-4 rounded-xl outline-none" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-blue-400 uppercase tracking-widest">Detailed Summary</label>
-                    <textarea placeholder="The AI recap agent will use this text..." className="w-full bg-black/50 border border-white/10 p-4 rounded-xl h-40 outline-none" />
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label>TOP PERFORMER</label>
+                    <input type="text" className="admin-input" placeholder="Winner name..." />
                   </div>
                 </div>
 
-                <button className="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-3 transition-all">
-                   <Database size={20} /> UPDATE CLUSTER
+                <div className="form-group">
+                  <label>EXECUTIVE SUMMARY</label>
+                  <textarea className="admin-input" style={{ height: '150px' }} placeholder="Provide a detailed recap for the AI agent..."></textarea>
+                </div>
+
+                <button className="admin-btn">
+                  <Database size={18} style={{ marginBottom: '-4px', marginRight: '10px' }} /> 
+                  SYNC TO MONGODB CLUSTER
                 </button>
               </div>
             ) : (
-              <div className="space-y-6">
-                <h3 className="text-xl font-bold flex items-center gap-2"><Award size={20} className="text-blue-500" /> Current Applicants</h3>
-                <div className="grid gap-4">
-                  {apps.length > 0 ? apps.map((app, idx) => (
-                    <div key={idx} className="bg-white/5 p-4 rounded-2xl border border-white/5 flex justify-between items-center">
-                      <div>
-                        <p className="font-bold">{app.name}</p>
-                        <p className="text-sm text-slate-400">{app.email}</p>
-                      </div>
-                      <span className="text-[10px] font-black bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full border border-blue-500/20 uppercase">Pending Review</span>
-                    </div>
-                  )) : (
-                    <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-3xl">
-                      <p className="text-slate-500 italic">No nodes detected in the application cluster.</p>
-                    </div>
-                  )}
-                </div>
+              <div style={{ textAlign: 'center', padding: '60px 0', color: '#6b7fa8' }}>
+                <Users size={48} style={{ marginBottom: '20px', opacity: 0.2 }} />
+                <p>No new node applications detected in the database.</p>
               </div>
             )}
           </div>
