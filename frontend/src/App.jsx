@@ -7,30 +7,9 @@ import Projects from './components/Projects';
 import { Team, Resources, Blog, Footer } from './components/StaticSections';
 import JoinForm from './components/JoinForm';
 import AdminDashboard from './components/AdminDashboard'; 
-import Chatbot from './components/Chatbot'; // Import the new component
+import Chatbot from './components/Chatbot'; 
 
-function App() {
-  return (
-    <Router>
-      <div className="app-container">
-        <BackgroundCanvas />
-        <Navbar />
-
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/admin-portal-verify" element={<AdminDashboard />} />
-        </Routes>
-
-        <Footer />
-        
-        {/* ── ADD THE CHATBOT HERE ── */}
-        <Chatbot /> 
-      </div>
-    </Router>
-  );
-}
-
-// 1. Define the LandingPage component FIRST so App can find it
+// 1. LandingPage Component
 const LandingPage = () => (
   <>
     <Hero />
@@ -49,24 +28,27 @@ const LandingPage = () => (
   </>
 );
 
-// 2. Define the App function ONLY ONCE
+// 2. The SINGLE App Function
 function App() {
   return (
     <Router>
       <div className="app-container">
-        {/* These components stay visible on every page */}
+        {/* These components are "Global" - they appear on every page */}
         <BackgroundCanvas />
         <Navbar />
 
         <Routes>
-          {/* When URL is "/", show the full landing page */}
+          {/* Main Website */}
           <Route path="/" element={<LandingPage />} />
 
-          {/* When URL is "/admin-portal-verify", show ONLY the admin dashboard */}
+          {/* Admin Control Panel */}
           <Route path="/admin-portal-verify" element={<AdminDashboard />} />
         </Routes>
 
         <Footer />
+        
+        {/* Floating AI Assistant - Stays visible everywhere */}
+        <Chatbot /> 
       </div>
     </Router>
   );
