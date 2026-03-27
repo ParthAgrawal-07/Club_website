@@ -8,19 +8,7 @@ import { Team, Resources, Blog, Footer } from './components/StaticSections';
 import JoinForm from './components/JoinForm';
 import AdminDashboard from './components/AdminDashboard'; 
 
-
-function App() {
-  return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/admin-portal-verify" element={<AdminDashboard />} />
-      </Routes>
-    </Router>
-  );
-}
-
-// 1. Create a component for your main website content
+// 1. Define the LandingPage component FIRST so App can find it
 const LandingPage = () => (
   <>
     <Hero />
@@ -39,14 +27,15 @@ const LandingPage = () => (
   </>
 );
 
+// 2. Define the App function ONLY ONCE
 function App() {
   return (
     <Router>
       <div className="app-container">
+        {/* These components stay visible on every page */}
         <BackgroundCanvas />
         <Navbar />
 
-        {/* 2. Routes decide which content to show based on the URL */}
         <Routes>
           {/* When URL is "/", show the full landing page */}
           <Route path="/" element={<LandingPage />} />
