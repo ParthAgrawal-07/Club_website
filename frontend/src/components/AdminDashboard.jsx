@@ -1,72 +1,52 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, Users, ClipboardList, CheckCircle } from 'lucide-react';
+import React, { useState } from 'react';
+// If Lucide is causing errors, comment these out temporarily
+// import { Calendar, Users, PlusCircle } from 'lucide-react';
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState('events'); // 'events' or 'apps'
-  const [apps, setApps] = useState([]);
-  const [eventForm, setEventForm] = useState({ event_name: '', event_date: '', summary: '' });
-
-  // Fetch applications when the tab changes
-  useEffect(() => {
-    if (activeTab === 'apps') {
-      fetch('http://localhost:8000/api/admin/applications')
-        .then(res => res.json())
-        .then(data => setApps(data));
-    }
-  }, [activeTab]);
+  const [activeTab, setActiveTab] = useState('events');
 
   return (
-    <div className="max-w-4xl mx-auto my-10 bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
-      {/* Sidebar/Tab Navigation */}
-      <div className="flex bg-slate-900 text-white">
-        <button 
-          onClick={() => setActiveTab('events')}
-          className={`flex-1 p-4 flex items-center justify-center gap-2 ${activeTab === 'events' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}
-        >
-          <Calendar size={18} /> Manage Events
-        </button>
-        <button 
-          onClick={() => setActiveTab('apps')}
-          className={`flex-1 p-4 flex items-center justify-center gap-2 ${activeTab === 'apps' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}
-        >
-          <Users size={18} /> View Applications
-        </button>
-      </div>
+    <div className="min-h-screen bg-slate-50 p-10 pt-32"> {/* Added pt-32 to clear the Navbar */}
+      <div className="max-w-4xl mx-auto bg-white shadow-xl rounded-2xl overflow-hidden border border-slate-200">
+        
+        {/* Tab Headers */}
+        <div className="flex bg-slate-900 text-white">
+          <button 
+            onClick={() => setActiveTab('events')}
+            className={`flex-1 p-4 font-bold ${activeTab === 'events' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}
+          >
+            Manage Events
+          </button>
+          <button 
+            onClick={() => setActiveTab('apps')}
+            className={`flex-1 p-4 font-bold ${activeTab === 'apps' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}
+          >
+            Applications
+          </button>
+        </div>
 
-      <div className="p-8">
-        {activeTab === 'events' ? (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold flex items-center gap-2"><ClipboardList /> Post Event Recap</h2>
-            {/* ... Reuse the Event Form from the previous step here ... */}
-            <p className="text-sm text-slate-500 italic font-medium">This info will update the AI Chatbot instantly.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <h2 className="text-2xl font-bold">Recent Applications</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b text-slate-400 text-sm">
-                    <th className="p-3">Applicant Name</th>
-                    <th className="p-3">Email</th>
-                    <th className="p-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {apps.map((app) => (
-                    <tr key={app._id} className="border-b hover:bg-slate-50">
-                      <td className="p-3 font-medium">{app.name}</td>
-                      <td className="p-3 text-slate-600">{app.email}</td>
-                      <td className="p-3">
-                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Received</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        {/* Content Area */}
+        <div className="p-8 text-slate-800">
+          {activeTab === 'events' ? (
+            <div className="space-y-4">
+              <h2 className="text-2xl font-black text-blue-700">Add New Event</h2>
+              <p className="text-sm text-slate-500">Enter details to update the AI Agent.</p>
+              
+              <div className="grid gap-4">
+                <input placeholder="Event Name" className="p-3 border rounded-lg bg-white" />
+                <textarea placeholder="Event Summary" className="p-3 border rounded-lg h-32" />
+                <button className="bg-blue-600 text-white p-4 rounded-lg font-bold">
+                  Publish to Database
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div>
+              <h2 className="text-2xl font-bold">Member Applications</h2>
+              <p className="mt-4 text-slate-400 italic">No applications found in MongoDB yet.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
