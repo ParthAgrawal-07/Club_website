@@ -6,17 +6,12 @@ import Events from './components/Events';
 import Projects from './components/Projects';
 import { Team, Resources, Blog, Footer } from './components/StaticSections';
 import JoinForm from './components/JoinForm';
-import AdminDashboard from './components/AdminDashboard'; // Import your new component
-import EventBot from './components/EventBot'; // Your AI Agent
+import AdminDashboard from './components/AdminDashboard'; 
 
-// This component represents your main Landing Page
-const HomePage = () => (
+// 1. Create a component for your main website content
+const LandingPage = () => (
   <>
     <Hero />
-    <div className="divider"></div>
-    <div className="max-w-4xl mx-auto p-6">
-       <EventBot /> {/* AI Agent stays on the main page */}
-    </div>
     <div className="divider"></div>
     <Events />
     <div className="divider"></div>
@@ -35,15 +30,16 @@ const HomePage = () => (
 function App() {
   return (
     <Router>
-      <div className="relative min-h-screen">
+      <div className="app-container">
         <BackgroundCanvas />
         <Navbar />
-        
-        <Routes>
-          {/* Public Home Route */}
-          <Route path="/" element={<HomePage />} />
 
-          {/* Hidden Admin Route */}
+        {/* 2. Routes decide which content to show based on the URL */}
+        <Routes>
+          {/* When URL is "/", show the full landing page */}
+          <Route path="/" element={<LandingPage />} />
+
+          {/* When URL is "/admin-portal-verify", show ONLY the admin dashboard */}
           <Route path="/admin-portal-verify" element={<AdminDashboard />} />
         </Routes>
 
