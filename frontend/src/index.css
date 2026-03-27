@@ -616,3 +616,42 @@
     transition: border-color 0.2s;
   }
   .newsletter-row input:focus { border-color: var(--accent); }
+
+.admin-glass {
+  background: rgba(13, 21, 38, 0.7); /* Using your --surface color with transparency */
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+}
+
+.admin-input {
+  background: var(--bg2) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  border-radius: 8px;
+  padding: 12px 16px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.admin-input:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 10px var(--glow);
+}
+
+.admin-btn {
+  background: var(--accent);
+  color: white;
+  font-weight: 700;
+  padding: 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.admin-btn:hover {
+  filter: brightness(1.2);
+  box-shadow: 0 0 20px var(--glow);
+}
