@@ -1,87 +1,63 @@
-import React, { useState, useRef, useEffect } from 'react';
-import ReactMarkdown from 'react-markdown';
-import { Send, Bot, Info } from 'lucide-react';
+import React, { useState } from 'react';
+import { MessageSquare, X, Send, Bot } from 'lucide-react';
 
-export default function EventBot() {
-  const [messages, setMessages] = useState([
-    { role: 'bot', text: "Hey! Missed the last AI Club event? Ask me for a recap!" }
-  ]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const scrollRef = useRef(null);
-
-  useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const askAgent = async () => {
-    if (!input.trim() || loading) return;
-    
-    const userMessage = { role: 'user', text: input };
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setLoading(true);
-
-    try {
-      const res = await fetch('http://localhost:8000/api/club-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: input }),
-      });
-      const data = await res.json();
-      setMessages(prev => [...prev, { role: 'bot', text: data.reply }]);
-    } catch {
-      setMessages(prev => [...prev, { role: 'bot', text: "Couldn't connect to the club server." }]);
-    } finally {
-      setLoading(false);
-    }
-  };
+export default function Chatbot() {
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="w-full max-w-lg mx-auto border-2 border-blue-100 rounded-3xl shadow-2xl overflow-hidden bg-white">
-      {/* Club Themed Header */}
-      <div className="bg-blue-700 p-5 text-white flex items-center gap-3">
-        <div className="bg-white/20 p-2 rounded-full">
-          <Bot size={24} />
-        </div>
-        <div>
-          <h2 className="font-bold text-lg leading-tight">AI Club Reporter</h2>
-          <p className="text-xs text-blue-100 flex items-center gap-1">
-            <Info size={12} /> Catch up on recent events
-          </p>
-        </div>
-      </div>
+    <div style={{ position: 'fixed', bottom: '30px', right: '30px', zIndex: 1000 }}>
+      {/* 1. The Floating Button */}
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          width: '60px', height: '60px', borderRadius: '50%',
+          background: 'var(--accent)', border: 'none', color: 'white',
+          boxShadow: '0 8px 32px var(--glow)', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifySelf: 'center', justifyContent: 'center'
+        }}
+      >
+        {isOpen ? <X size={28} /> : <MessageSquare size={28} />}
+      </button>
 
-      {/* Chat History */}
-      <div className="h-96 overflow-y-auto p-6 space-y-4 bg-slate-50">
-        {messages.map((m, i) => (
-          <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[85%] p-4 rounded-2xl shadow-sm text-sm ${
-              m.role === 'user' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none'
-            }`}>
-              <ReactMarkdown>{m.text}</ReactMarkdown>
+      {/* 2. The Chat Window */}
+      {isOpen && (
+        <div style={{
+          position: 'absolute', bottom: '80px', right: '0',
+          width: '350px', height: '450px',
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: '20px', display: 'flex', flexDirection: 'column',
+          overflow: 'hidden', backdropFilter: 'blur(20px)',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
+        }}>
+          {/* Header */}
+          <div style={{ padding: '20px', background: 'rgba(59,130,246,0.1)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Bot size={20} color="var(--accent)" />
+            <span style={{ fontWeight: 'bold', fontSize: '14px' }}>NeuralNode Assistant</span>
+          </div>
+
+          {/* Messages Area */}
+          <div style={{ flex: 1, padding: '20px', overflowY: 'auto', fontSize: '13px', color: 'var(--muted)' }}>
+            <div style={{ background: 'var(--surface2)', padding: '10px', borderRadius: '10px', marginBottom: '10px', width: 'fit-content' }}>
+              Hello! How can I help you navigate the AI Club today?
             </div>
           </div>
-        ))}
-        <div ref={scrollRef} />
-      </div>
 
-      {/* Simple Input Area */}
-      <div className="p-4 bg-white border-t border-slate-100 flex gap-3">
-        <input 
-          className="flex-1 bg-slate-100 rounded-full px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-          placeholder="What happened at the Triathlon?"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && askAgent()}
-        />
-        <button 
-          onClick={askAgent}
-          className="bg-blue-700 text-white p-3 rounded-full hover:bg-blue-800 transition-transform active:scale-90"
-        >
-          <Send size={20} />
-        </button>
-      </div>
+          {/* Input Area */}
+          <div style={{ padding: '15px', borderTop: '1px solid var(--border)', display: 'flex', gap: '10px' }}>
+            <input 
+              type="text" 
+              placeholder="Ask anything..." 
+              style={{ 
+                flex: 1, background: 'var(--bg2)', border: '1px solid var(--border)', 
+                borderRadius: '8px', padding: '8px 12px', color: 'white', outline: 'none' 
+              }} 
+            />
+            <button style={{ background: 'var(--accent)', border: 'none', borderRadius: '8px', padding: '8px', color: 'white', cursor: 'pointer' }}>
+              <Send size={18} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
