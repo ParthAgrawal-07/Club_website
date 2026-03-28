@@ -21,7 +21,7 @@ export default function AdminDashboard() {
   // Fetch Applicants when switching tabs
   useEffect(() => {
     if (activeTab === 'apps') {
-     fetch(https://club-website-7aay.vercel.app/api/admin/events')
+     fetch('https://club-website-7aay.vercel.app/api/admin/events')
         .then(res => res.json())
         .then(data => setApps(data))
         .catch(err => console.error("Cluster access denied:", err));
