@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -8,29 +8,38 @@ from dotenv import load_dotenv
 from datetime import datetime
 
 load_dotenv()
+
+# --- CRITICAL: Vercel specifically looks for this 'app' variable ---
 app = FastAPI()
 
-# Change this in your main.py
+# --- CORS SETUP ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows ALL websites (Nuclear option)
+    allow_origins=[
+        "http://localhost:5173",
+        "https://club-website-7aay.vercel.app",
+        "https://club-website-eta.vercel.app"
+    ],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows ALL methods (POST, GET, OPTIONS, etc.)
-    allow_headers=["*"],  # Allows ALL headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# MongoDB Setup
+# --- DATABASE SETUP ---
 MONGO_URI = os.getenv("DATABASE_URL")
-client = AsyncIOMotorClient(MONGO_URI)
-# Use your actual DB name here (check Atlas, usually 'test' or 'ai_club_db')
-db = client.test 
-
+# Renamed to db_client so it doesn't conflict with the AI client
+db_client = AsyncIOMotorClient(MONGO_URI)
+db = db_client.test 
 events_collection = db.Events 
 apps_collection = db.applications
 
-client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+# --- GEMINI SETUP (NEW SDK) ---
+ai_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # --- DATA MODELS ---
+class ChatRequest(BaseModel):
+    message: str
+
 class EventData(BaseModel):
     event_name: str
     event_date: str
@@ -45,11 +54,14 @@ class ApplicationData(BaseModel):
     interest: str
     reason: str
 
-class ChatRequest(BaseModel):
-    message: str
-
 # --- ROUTES ---
 
+# 1. Preflight CORS Handler for Vercel
+@app.options("/api/admin/events")
+async def options_admin_events(request: Request):
+    return Response(status_code=200)
+
+# 2. Add New Event
 @app.post("/api/admin/events")
 async def add_event(event: EventData):
     try:
@@ -60,6 +72,7 @@ async def add_event(event: EventData):
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to save event")
 
+# 3. Get Applications
 @app.get("/api/admin/applications")
 async def get_applications():
     try:
@@ -70,6 +83,7 @@ async def get_applications():
     except Exception as e:
         raise HTTPException(status_code=500, detail="Could not fetch applications")
 
+# 4. Submit Application
 @app.post("/api/apply")
 async def apply_to_club(application: ApplicationData):
     try:
@@ -80,10 +94,11 @@ async def apply_to_club(application: ApplicationData):
     except Exception as e:
         raise HTTPException(status_code=500, detail="Submission failed")
 
+# 5. AI Chatbot
 @app.post("/api/club-chat")
 async def club_chat(request: ChatRequest):
     try:
-        # 1. Try to fetch the latest event safely
+        # Fetch the latest event
         latest_event = await events_collection.find().sort("event_date", -1).to_list(1)
         
         if not latest_event:
@@ -92,19 +107,20 @@ async def club_chat(request: ChatRequest):
             ev = latest_event[0]
             context = f"Event: {ev.get('event_name', 'Unknown')} | Highlights: {ev.get('key_highlights', 'None')}"
 
-        # 2. Setup Gemini
         system_prompt = f"You are the AI Club Reporter. Context: {context}"
         
-        # 3. Call Gemini
-      response = client.models.generate_content(
-    model='gemini-1.5-flash',
-    contents=f"{system_prompt}\nUser: {request.message}"
-)
+        # Call Gemini using the new SDK syntax
+        response = ai_client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=f"{system_prompt}\nUser: {request.message}"
+        )
         
         return {"reply": response.text}
-
     except Exception as e:
-        # This will print the exact reason to the Vercel Logs
         print(f"CRITICAL CHAT ERROR: {str(e)}")
-        # This will send the exact reason back to your React app's console
         raise HTTPException(status_code=500, detail=f"Backend Crash: {str(e)}")
+
+# Used only for local testing
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
