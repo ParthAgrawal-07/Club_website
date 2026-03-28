@@ -3,7 +3,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from motor.motor_asyncio import AsyncIOMotorClient
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -28,9 +28,7 @@ db = client.test
 events_collection = db.Events 
 apps_collection = db.applications
 
-# Gemini AI Setup
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-model = genai.GenerativeModel('gemini-1.5-flash')
+client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # --- DATA MODELS ---
 class EventData(BaseModel):
@@ -98,7 +96,10 @@ async def club_chat(request: ChatRequest):
         system_prompt = f"You are the AI Club Reporter. Context: {context}"
         
         # 3. Call Gemini
-        response = model.generate_content(f"{system_prompt}\nUser: {request.message}")
+      response = client.models.generate_content(
+    model='gemini-1.5-flash',
+    contents=f"{system_prompt}\nUser: {request.message}"
+)
         
         return {"reply": response.text}
 
