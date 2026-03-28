@@ -4,94 +4,99 @@ import { Link } from 'react-router-dom';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('events');
+  const [loading, setLoading] = useState(false);
+  
+  // 1. Create state for the form fields
+  const [formData, setFormData] = useState({
+    title: '',
+    date: '',
+    winner: '',
+    summary: ''
+  });
 
-  // Inline style for the background to ensure it's never white
-  const pageStyle = {
-    backgroundColor: '#050810',
-    minHeight: '100vh',
-    paddingTop: '120px',
-    paddingBottom: '60px',
-    color: '#e2eaff'
+  const handleSync = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const response = await fetch('http://localhost:8000/api/admin/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        alert("🚀 Cluster Updated Successfully!");
+        setFormData({ title: '', date: '', winner: '', summary: '' }); // Clear form
+      } else {
+        alert("❌ Sync Failed. Check Backend logs.");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("❌ Connection Error: Is your FastAPI server running?");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div style={pageStyle}>
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 20px' }}>
+    // ... outer layout code ...
+    {activeTab === 'events' ? (
+      <form onSubmit={handleSync} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className="form-group">
+          <label>EVENT IDENTITY</label>
+          <input 
+            type="text" 
+            className="admin-input" 
+            value={formData.title}
+            onChange={(e) => setFormData({...formData, title: e.target.value})}
+            placeholder="e.g. Neural Summit 2026" 
+            required
+          />
+        </div>
         
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
-          <div>
-            <h1 style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '32px', color: '#3b82f6' }}>COMMAND CENTER</h1>
-            <p style={{ color: '#6b7fa8', fontSize: '14px' }}>System Administration & Node Management</p>
+        <div style={{ display: 'flex', gap: '20px' }}>
+          <div className="form-group" style={{ flex: 1 }}>
+            <label>TIMESTAMP</label>
+            <input 
+              type="date" 
+              className="admin-input" 
+              value={formData.date}
+              onChange={(e) => setFormData({...formData, date: e.target.value})}
+              required
+            />
           </div>
-          <Link to="/" className="btn-outline" style={{ padding: '8px 16px', fontSize: '12px' }}>
-            <ArrowLeft size={14} style={{ marginRight: '8px' }} /> Return
-          </Link>
-        </div>
-
-        {/* Dashboard Box */}
-        <div className="admin-glass">
-          {/* Tabs */}
-          <div style={{ display: 'flex', borderBottom: '1px solid rgba(99,179,255,0.12)' }}>
-            <button 
-              onClick={() => setActiveTab('events')}
-              style={{ 
-                flex: 1, padding: '20px', border: 'none', background: activeTab === 'events' ? 'rgba(59,130,246,0.1)' : 'transparent',
-                color: activeTab === 'events' ? '#3b82f6' : '#6b7fa8', fontWeight: 'bold', cursor: 'pointer'
-              }}
-            >
-              <Zap size={18} style={{ marginBottom: '-4px', marginRight: '8px' }} /> Update Events
-            </button>
-            <button 
-              onClick={() => setActiveTab('apps')}
-              style={{ 
-                flex: 1, padding: '20px', border: 'none', background: activeTab === 'apps' ? 'rgba(59,130,246,0.1)' : 'transparent',
-                color: activeTab === 'apps' ? '#3b82f6' : '#6b7fa8', fontWeight: 'bold', cursor: 'pointer'
-              }}
-            >
-              <Users size={18} style={{ marginBottom: '-4px', marginRight: '8px' }} /> Review Applicants
-            </button>
-          </div>
-
-          {/* Form Content */}
-          <div style={{ padding: '40px' }}>
-            {activeTab === 'events' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div className="form-group">
-                  <label>EVENT IDENTITY</label>
-                  <input type="text" className="admin-input" placeholder="e.g. Neural Summit 2026" />
-                </div>
-                
-                <div style={{ display: 'flex', gap: '20px' }}>
-                  <div className="form-group" style={{ flex: 1 }}>
-                    <label>TIMESTAMP</label>
-                    <input type="date" className="admin-input" />
-                  </div>
-                  <div className="form-group" style={{ flex: 1 }}>
-                    <label>TOP PERFORMER</label>
-                    <input type="text" className="admin-input" placeholder="Winner name..." />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label>EXECUTIVE SUMMARY</label>
-                  <textarea className="admin-input" style={{ height: '150px' }} placeholder="Provide a detailed recap for the AI agent..."></textarea>
-                </div>
-
-                <button className="admin-btn">
-                  <Database size={18} style={{ marginBottom: '-4px', marginRight: '10px' }} /> 
-                  SYNC TO MONGODB CLUSTER
-                </button>
-              </div>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '60px 0', color: '#6b7fa8' }}>
-                <Users size={48} style={{ marginBottom: '20px', opacity: 0.2 }} />
-                <p>No new node applications detected in the database.</p>
-              </div>
-            )}
+          <div className="form-group" style={{ flex: 1 }}>
+            <label>TOP PERFORMER</label>
+            <input 
+              type="text" 
+              className="admin-input" 
+              value={formData.winner}
+              onChange={(e) => setFormData({...formData, winner: e.target.value})}
+              placeholder="Winner name..." 
+            />
           </div>
         </div>
-      </div>
-    </div>
+
+        <div className="form-group">
+          <label>EXECUTIVE SUMMARY</label>
+          <textarea 
+            className="admin-input" 
+            style={{ height: '150px' }} 
+            value={formData.summary}
+            onChange={(e) => setFormData({...formData, summary: e.target.value})}
+            placeholder="Provide a detailed recap..."
+            required
+          ></textarea>
+        </div>
+
+        <button type="submit" className="admin-btn" disabled={loading}>
+          <Database size={18} style={{ marginBottom: '-4px', marginRight: '10px' }} /> 
+          {loading ? "UPLOADING..." : "SYNC TO MONGODB CLUSTER"}
+        </button>
+      </form>
+    ) : (
+      // ... applicants list ...
+    )}
   );
 }
