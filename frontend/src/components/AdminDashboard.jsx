@@ -1,30 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Users, Database, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
+import { Zap, Users, Database, ArrowLeft, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('events');
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState(null); // 'success' or 'error'
+  const [status, setStatus] = useState(null); 
   
-  // Form State
+  // 1. UPDATED: Field names now match your FastAPI Pydantic model exactly
   const [formData, setFormData] = useState({
-    title: '',
-    date: '',
-    winner: '',
-    summary: ''
+    event_name: '',
+    event_date: '',
+    winners: '',
+    summary: '',
+    key_highlights: '' // Added missing field
   });
 
-  // Applicants State
   const [apps, setApps] = useState([]);
 
-  // Fetch Applicants when switching tabs
+  // 2. UPDATED: Corrected endpoint to /applications and added basic error handling
   useEffect(() => {
     if (activeTab === 'apps') {
-     fetch('https://club-website-7aay.vercel.app/api/admin/events')
+      setLoading(true);
+      fetch('https://club-website-7aay.vercel.app/api/admin/applications')
         .then(res => res.json())
-        .then(data => setApps(data))
-        .catch(err => console.error("Cluster access denied:", err));
+        .then(data => {
+          setApps(Array.isArray(data) ? data : []);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error("Cluster access denied:", err);
+          setLoading(false);
+        });
     }
   }, [activeTab]);
 
@@ -34,7 +41,7 @@ export default function AdminDashboard() {
     setStatus(null);
 
     try {
-    const response = await fetch('https://club-website-7aay.vercel.app/api/admin/events', {
+      const response = await fetch('https://club-website-7aay.vercel.app/api/admin/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -42,7 +49,8 @@ export default function AdminDashboard() {
 
       if (response.ok) {
         setStatus('success');
-        setFormData({ title: '', date: '', winner: '', summary: '' });
+        // Reset form with correct keys
+        setFormData({ event_name: '', event_date: '', winners: '', summary: '', key_highlights: '' });
         setTimeout(() => setStatus(null), 3000);
       } else {
         setStatus('error');
@@ -67,7 +75,6 @@ export default function AdminDashboard() {
     <div style={pageStyle}>
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 20px' }}>
         
-        {/* Header Section */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
           <div>
             <h1 style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: '32px', color: '#3b82f6', letterSpacing: '-1px' }}>
@@ -75,15 +82,12 @@ export default function AdminDashboard() {
             </h1>
             <p style={{ color: '#6b7fa8', fontSize: '14px', marginTop: '4px' }}>NeuralNode System Administration</p>
           </div>
-          <Link to="/" className="btn-outline" style={{ padding: '8px 16px', fontSize: '12px', textDecoration: 'none' }}>
+          <Link to="/" className="btn-outline" style={{ padding: '8px 16px', fontSize: '12px', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
             <ArrowLeft size={14} style={{ marginRight: '8px' }} /> RETURN TO TERMINAL
           </Link>
         </div>
 
-        {/* Main Dashboard Container */}
         <div className="admin-glass">
-          
-          {/* Tabs Navigation */}
           <div style={{ display: 'flex', borderBottom: '1px solid rgba(99,179,255,0.12)', background: 'rgba(0,0,0,0.2)' }}>
             <button 
               onClick={() => setActiveTab('events')}
@@ -111,7 +115,6 @@ export default function AdminDashboard() {
             </button>
           </div>
 
-          {/* Dynamic Content Area */}
           <div style={{ padding: '40px' }}>
             {activeTab === 'events' ? (
               <form onSubmit={handleSync} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -122,8 +125,8 @@ export default function AdminDashboard() {
                     type="text" 
                     className="admin-input" 
                     placeholder="e.g. AI Triathlon 2026"
-                    value={formData.title}
-                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                    value={formData.event_name}
+                    onChange={(e) => setFormData({...formData, event_name: e.target.value})}
                     required 
                   />
                 </div>
@@ -134,28 +137,42 @@ export default function AdminDashboard() {
                     <input 
                       type="date" 
                       className="admin-input" 
-                      value={formData.date}
-                      onChange={(e) => setFormData({...formData, date: e.target.value})}
+                      value={formData.event_date}
+                      onChange={(e) => setFormData({...formData, event_date: e.target.value})}
                       required 
                     />
                   </div>
                   <div className="form-group" style={{ flex: 1, minWidth: '200px' }}>
-                    <label style={{ color: '#3b82f6', fontSize: '11px', fontWeight: '800', marginBottom: '8px', display: 'block' }}>TOP PERFORMER</label>
+                    <label style={{ color: '#3b82f6', fontSize: '11px', fontWeight: '800', marginBottom: '8px', display: 'block' }}>TOP PERFORMERS</label>
                     <input 
                       type="text" 
                       className="admin-input" 
-                      placeholder="Winner name"
-                      value={formData.winner}
-                      onChange={(e) => setFormData({...formData, winner: e.target.value})}
+                      placeholder="e.g. Team Alpha, Node Ninja"
+                      value={formData.winners}
+                      onChange={(e) => setFormData({...formData, winners: e.target.value})}
+                      required
                     />
                   </div>
+                </div>
+
+                {/* 3. NEW: Added Key Highlights input to satisfy backend requirements */}
+                <div className="form-group">
+                  <label style={{ color: '#3b82f6', fontSize: '11px', fontWeight: '800', marginBottom: '8px', display: 'block' }}>KEY HIGHLIGHTS</label>
+                  <input 
+                    type="text" 
+                    className="admin-input" 
+                    placeholder="e.g. 50+ participants, Neural Network workshop"
+                    value={formData.key_highlights}
+                    onChange={(e) => setFormData({...formData, key_highlights: e.target.value})}
+                    required
+                  />
                 </div>
 
                 <div className="form-group">
                   <label style={{ color: '#3b82f6', fontSize: '11px', fontWeight: '800', marginBottom: '8px', display: 'block' }}>EXECUTIVE SUMMARY</label>
                   <textarea 
                     className="admin-input" 
-                    style={{ minHeight: '150px' }} 
+                    style={{ minHeight: '120px' }} 
                     placeholder="Detailed recap for the AI agent..."
                     value={formData.summary}
                     onChange={(e) => setFormData({...formData, summary: e.target.value})}
@@ -179,16 +196,25 @@ export default function AdminDashboard() {
                     DATABASE UPDATED SUCCESSFULLY
                   </div>
                 )}
+
+                {status === 'error' && (
+                  <div style={{ color: '#ff4d4d', fontSize: '13px', textAlign: 'center', fontWeight: 'bold' }}>
+                    <AlertCircle size={16} style={{ verticalAlign: 'middle', marginRight: '6px' }} />
+                    SYNC FAILED: CHECK CONSOLE OR MODEL FIELDS
+                  </div>
+                )}
               </form>
             ) : (
               <div style={{ minHeight: '300px' }}>
-                {apps.length > 0 ? (
+                {loading ? (
+                  <div style={{ textAlign: 'center', paddingTop: '100px' }}><Loader2 className="animate-spin" size={32} color="#3b82f6" /></div>
+                ) : apps.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {apps.map((app, index) => (
                       <div key={index} style={{ padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
-                          <p style={{ fontWeight: '700', margin: 0 }}>{app.name}</p>
-                          <p style={{ fontSize: '12px', color: '#6b7fa8', margin: 0 }}>{app.email}</p>
+                          <p style={{ fontWeight: '700', margin: 0 }}>{app.name || 'Unknown Node'}</p>
+                          <p style={{ fontSize: '12px', color: '#6b7fa8', margin: 0 }}>{app.email || 'No email provided'}</p>
                         </div>
                         <span style={{ fontSize: '10px', background: 'rgba(59,130,246,0.1)', color: '#3b82f6', padding: '4px 10px', borderRadius: '4px', border: '1px solid rgba(59,130,246,0.2)' }}>PENDING</span>
                       </div>
