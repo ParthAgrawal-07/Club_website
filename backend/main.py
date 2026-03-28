@@ -10,17 +10,13 @@ from datetime import datetime
 load_dotenv()
 app = FastAPI()
 
-# Updated CORS to include both of your Vercel URLs
+# Change this in your main.py
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "https://club-website-7aay.vercel.app",
-        "https://club-website-eta.vercel.app"
-    ],
+    allow_origins=["*"],  # Allows ALL websites (Nuclear option)
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allows ALL methods (POST, GET, OPTIONS, etc.)
+    allow_headers=["*"],  # Allows ALL headers
 )
 
 # MongoDB Setup
