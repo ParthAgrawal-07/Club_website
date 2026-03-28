@@ -45,7 +45,7 @@ class EventData(BaseModel):
     key_highlights: str
 
 # 4. Route: Add New Event to the 'events' collection
-@app.post("/api/admin/add-event")
+@app.post("/api/admin/events")
 async def add_event(event: EventData):
     new_event = event.dict()
     new_event["created_at"] = datetime.utcnow()
