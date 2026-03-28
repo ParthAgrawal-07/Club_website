@@ -1,6 +1,7 @@
 fastapi
 uvicorn
-google-generativeai
-motor  # Asynchronous MongoDB driver
+motor
 pydantic
+email-validator
+google-generativeai
 python-dotenv
