@@ -23,7 +23,7 @@ MONGO_URI = os.getenv("DATABASE_URL")
 client = AsyncIOMotorClient(MONGO_URI)
 
 # This selects the 'ai_club_db' database
-db = client.Cluster0
+db = client.test
 
 # This selects the 'events' collection (your "event folder")
 # You can also use db.application for your other data
