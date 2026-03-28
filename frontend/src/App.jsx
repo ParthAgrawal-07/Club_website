@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import BackgroundCanvas from './components/BackgroundCanvas';
 import Navbar from './components/Navbar';
