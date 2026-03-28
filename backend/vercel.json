@@ -2,20 +2,18 @@
   "version": 2,
   "builds": [
     {
-      "src": "server.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "server.js"
+      "src": "main.py",
+      "use": "@vercel/python"
     }
   ],
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/main.py" 
+      "dest": "main.py"
+    },
+    {
+      "source": "/(.*)",
+      "dest": "main.py"
     }
   ]
 }
