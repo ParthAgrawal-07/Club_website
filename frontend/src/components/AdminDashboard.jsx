@@ -21,7 +21,7 @@ export default function AdminDashboard() {
   // Fetch Applicants when switching tabs
   useEffect(() => {
     if (activeTab === 'apps') {
-      fetch('http://localhost:8000/api/admin/applications')
+     fetch(https://club-website-7aay.vercel.app/api/admin/events')
         .then(res => res.json())
         .then(data => setApps(data))
         .catch(err => console.error("Cluster access denied:", err));
@@ -34,7 +34,7 @@ export default function AdminDashboard() {
     setStatus(null);
 
     try {
-      const response = await fetch('http://localhost:8000/api/admin/events', {
+    const response = await fetch('https://club-website-7aay.vercel.app/api/admin/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
