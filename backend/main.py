@@ -85,10 +85,25 @@ async def apply_to_club(application: ApplicationData):
 @app.post("/api/club-chat")
 async def club_chat(request: ChatRequest):
     try:
+        # 1. Try to fetch the latest event safely
         latest_event = await events_collection.find().sort("event_date", -1).to_list(1)
-        context = "No events found." if not latest_event else f"Event: {latest_event[0]['event_name']}..."
+        
+        if not latest_event:
+            context = "We haven't uploaded the details for the latest event yet. Check back soon!"
+        else:
+            ev = latest_event[0]
+            context = f"Event: {ev.get('event_name', 'Unknown')} | Highlights: {ev.get('key_highlights', 'None')}"
+
+        # 2. Setup Gemini
         system_prompt = f"You are the AI Club Reporter. Context: {context}"
+        
+        # 3. Call Gemini
         response = model.generate_content(f"{system_prompt}\nUser: {request.message}")
+        
         return {"reply": response.text}
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail="AI Error")
+        # This will print the exact reason to the Vercel Logs
+        print(f"CRITICAL CHAT ERROR: {str(e)}")
+        # This will send the exact reason back to your React app's console
+        raise HTTPException(status_code=500, detail=f"Backend Crash: {str(e)}")
