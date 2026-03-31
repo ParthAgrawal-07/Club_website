@@ -1,4 +1,4 @@
-# Ignore the environment file containing secrets
+# Ignore the environment file containing secretss
 .env
 
 # Ignore python cache and virtual environments
