@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExternalLink } from 'lucide-react';
-import { projects } from '../data/projects';
+import { projects } from '../../data/projects';
 
 // Map tags from projects.ts to display styles
 const tagStyleMap: Record<string, { tagClass: string; label: string }> = {
