@@ -1,20 +1,59 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExternalLink } from 'lucide-react';
+import { projects } from '../data/projects';
 
-const projects = [
-  { id: 1, tag: 'Hardware / IoT', tagClass: 'tag-green', category: 'hardware', title: 'AutoMed — Pill Dispenser', desc: 'An automatic pill dispenser built with Arduino and ESP8266, featuring remote scheduling via a local network server.' },
-  { id: 2, tag: 'NLP', tagClass: 'tag-blue', category: 'nlp', title: 'CampusBot — LLM Chatbot', desc: 'A RAG-based chatbot trained on college documents. Deployed as a WhatsApp bot used by 500+ students.' },
-  { id: 3, tag: 'Robotics', tagClass: 'tag-pink', category: 'hardware', title: 'Autonomous Nav-Bot', desc: 'A ROS-based mobile robot integrating LiDAR and depth cameras for real-time SLAM and obstacle avoidance.' },
-];
+// Map tags from projects.ts to display styles
+const tagStyleMap: Record<string, { tagClass: string; label: string }> = {
+  'Machine Learning':    { tagClass: 'tag-blue',  label: 'Machine Learning' },
+  'Full Stack':          { tagClass: 'tag-green', label: 'Full Stack' },
+  'Data Science':        { tagClass: 'tag-blue',  label: 'Data Science' },
+  'Sports Analytics':    { tagClass: 'tag-green', label: 'Sports Analytics' },
+  'Computer Vision':     { tagClass: 'tag-pink',  label: 'Computer Vision' },
+  'Object Detection':    { tagClass: 'tag-pink',  label: 'Object Detection' },
+  'Retail AI':           { tagClass: 'tag-pink',  label: 'Retail AI' },
+  'Deep Learning':       { tagClass: 'tag-blue',  label: 'Deep Learning' },
+  'Renewable Energy':    { tagClass: 'tag-green', label: 'Renewable Energy' },
+  'Regression':          { tagClass: 'tag-blue',  label: 'Regression' },
+  'Forecasting':         { tagClass: 'tag-green', label: 'Forecasting' },
+  'Energy':              { tagClass: 'tag-green', label: 'Energy' },
+  'Python':              { tagClass: 'tag-blue',  label: 'Python' },
+  'OpenCV':              { tagClass: 'tag-pink',  label: 'OpenCV' },
+};
 
-const tabs = ['all', 'nlp', 'hardware', 'rl'];
+// Pick the first tag that has a style, for the card badge
+function getPrimaryTag(tags: string[]) {
+  for (const tag of tags) {
+    if (tagStyleMap[tag]) return tagStyleMap[tag];
+  }
+  return { tagClass: 'tag-blue', label: tags[0] };
+}
+
+// Derive unique filter tabs from actual project tags
+const categoryOrder = ['all', 'ml', 'cv', 'fullstack', 'energy'];
+
+// Map each project to a simple category for tab filtering
+function getCategory(tags: string[]): string {
+  if (tags.includes('Computer Vision') || tags.includes('Object Detection')) return 'cv';
+  if (tags.includes('Full Stack'))                                             return 'fullstack';
+  if (tags.includes('Renewable Energy') || tags.includes('Energy') || tags.includes('Forecasting')) return 'energy';
+  if (tags.includes('Machine Learning') || tags.includes('Deep Learning'))    return 'ml';
+  return 'ml';
+}
+
+const tabLabels: Record<string, string> = {
+  all:      'ALL',
+  ml:       'ML / AI',
+  cv:       'COMPUTER VISION',
+  fullstack:'FULL STACK',
+  energy:   'ENERGY',
+};
 
 export default function Projects() {
   const [activeTab, setActiveTab] = useState('all');
 
   const filtered = projects.filter(
-    (p) => activeTab === 'all' || p.category === activeTab
+    (p) => activeTab === 'all' || getCategory(p.tags) === activeTab
   );
 
   return (
@@ -32,7 +71,7 @@ export default function Projects() {
 
         {/* Tabs */}
         <div className="flex gap-1 border-b border-border mb-10 flex-wrap">
-          {tabs.map((tab) => (
+          {categoryOrder.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -40,7 +79,7 @@ export default function Projects() {
                 activeTab === tab ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              {tab.toUpperCase()}
+              {tabLabels[tab]}
               {activeTab === tab && (
                 <motion.div
                   layoutId="project-tab-indicator"
@@ -55,32 +94,61 @@ export default function Projects() {
         {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           <AnimatePresence mode="popLayout">
-            {filtered.map((p, i) => (
-              <motion.div
-                key={p.id}
-                layout
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0, transition: { delay: i * 0.1, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } }}
-                exit={{ opacity: 0, scale: 0.9, y: -10, transition: { duration: 0.25 } }}
-                whileHover={{ y: -6, transition: { duration: 0.25 } }}
-                className="glass-card relative overflow-hidden p-7 cursor-pointer"
-              >
-                <span className={`${p.tagClass} font-mono text-[10px] tracking-widest uppercase px-3 py-1 rounded`}>
-                  {p.tag}
-                </span>
-                <h4 className="font-display font-bold text-lg text-foreground mt-4 mb-2">{p.title}</h4>
-                <p className="text-sm text-muted-foreground leading-relaxed">{p.desc}</p>
-                <motion.div className="mt-5" whileHover={{ x: 4 }} transition={{ duration: 0.2 }}>
-                  <a
-                    href="#"
-                    className="inline-flex items-center gap-1.5 text-xs text-primary border border-primary/25 rounded-md px-3 py-1 hover:bg-primary/10 transition-colors"
-                  >
-                    <ExternalLink size={12} /> GitHub
-                  </a>
+            {filtered.map((p, i) => {
+              const { tagClass, label } = getPrimaryTag(p.tags);
+              return (
+                <motion.div
+                  key={p.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0, transition: { delay: i * 0.1, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } }}
+                  exit={{ opacity: 0, scale: 0.9, y: -10, transition: { duration: 0.25 } }}
+                  whileHover={{ y: -6, transition: { duration: 0.25 } }}
+                  className="glass-card relative overflow-hidden p-7 cursor-pointer"
+                >
+                  {/* Primary tag badge */}
+                  <span className={`${tagClass} font-mono text-[10px] tracking-widest uppercase px-3 py-1 rounded`}>
+                    {label}
+                  </span>
+
+                  {/* Title */}
+                  <h4 className="font-display font-bold text-lg text-foreground mt-4 mb-1">{p.title}</h4>
+
+                  {/* Author */}
+                  <p className="text-xs text-muted-foreground mb-2">by {p.author}</p>
+
+                  {/* Description */}
+                  <p className="text-sm text-muted-foreground leading-relaxed">{p.description}</p>
+
+                  {/* All tags */}
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {p.tags.slice(0, 4).map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-[10px] font-mono text-muted-foreground border border-border rounded px-2 py-0.5"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* GitHub link */}
+                  <motion.div className="mt-5" whileHover={{ x: 4 }} transition={{ duration: 0.2 }}>
+                    <a
+                      href={p.githubLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1.5 text-xs text-primary border border-primary/25 rounded-md px-3 py-1 hover:bg-primary/10 transition-colors"
+                    >
+                      <ExternalLink size={12} /> GitHub
+                    </a>
+                  </motion.div>
                 </motion.div>
-              </motion.div>
-            ))}
+              );
+            })}
           </AnimatePresence>
+
           {filtered.length === 0 && (
             <motion.p
               initial={{ opacity: 0 }}
