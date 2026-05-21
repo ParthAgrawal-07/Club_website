@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import heroBg from '@/assets/hero-bg.jpg';
+import aiClubLogo from '@/assets/ai-club-logo.jpeg';
 
 const stats = [
   { value: 120, suffix: '+', label: 'Active Members' },
@@ -54,11 +55,7 @@ export default function Hero() {
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background/50 to-background" />
       </motion.div>
 
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
+      <motion.div variants={containerVariants} initial="hidden" animate="visible">
         {/* Badge */}
         <motion.div
           variants={itemVariants}
@@ -66,6 +63,19 @@ export default function Hero() {
         >
           <span className="w-1.5 h-1.5 rounded-full bg-accent" style={{ animation: 'pulse-dot 2s infinite' }} />
           Recruiting 2025–26 · Applications Open
+        </motion.div>
+
+        {/* Logo + Club name lockup */}
+        <motion.div variants={itemVariants} className="flex items-center gap-4 mb-6">
+          <img
+            src={aiClubLogo}
+            alt="AI Club DAIICT Logo"
+            className="w-16 h-16 rounded-xl object-contain"
+          />
+          <div>
+            <p className="font-mono text-xs text-primary tracking-widest uppercase mb-0.5">DA-IICT · Gandhinagar</p>
+            <p className="font-display font-extrabold text-2xl text-foreground tracking-tight">AI Club DAIICT</p>
+          </div>
         </motion.div>
 
         {/* Title */}
@@ -99,7 +109,7 @@ export default function Hero() {
           variants={itemVariants}
           className="max-w-xl text-muted-foreground text-base md:text-lg leading-relaxed mb-10"
         >
-          NeuralNode is your college's premier Artificial Intelligence club — where students research, build, and ship real AI projects.
+          AI Club DAIICT is DA-IICT's premier Artificial Intelligence club — where students research, build, and ship real AI projects.
         </motion.p>
 
         {/* Buttons */}
@@ -123,7 +133,7 @@ export default function Hero() {
         </motion.div>
       </motion.div>
 
-      {/* Stats with counter animation */}
+      {/* Stats */}
       <motion.div
         className="flex flex-wrap gap-12 md:gap-16 mt-20 pt-10 border-t border-border"
         initial="hidden"
