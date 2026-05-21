@@ -6,7 +6,7 @@ export default function Events() {
   const [timeLeft, setTimeLeft] = useState({ d: '00', h: '00', m: '00', s: '00' });
 
   useEffect(() => {
-    const target = new Date('2026-04-05T09:00:00').getTime();
+    const target = new Date('2026-06-15T09:00:00').getTime();
     const interval = setInterval(() => {
       const diff = target - Date.now();
       if (diff <= 0) { clearInterval(interval); return; }
@@ -24,26 +24,109 @@ export default function Events() {
 
   const eventCards: Record<string, Array<{ tag: string; tagClass: string; title: string; desc: string; meta: string[] }>> = {
     upcoming: [
-      { tag: 'Hackathon', tagClass: 'tag-blue', title: 'GenAI Hackathon 2026', desc: '48-hour hackathon building with the latest generative AI APIs. Open to all branches.', meta: ['April 5, 2026', 'Registration Open'] },
+      {
+        tag: 'Hackathon',
+        tagClass: 'tag-blue',
+        title: 'GenAI Hackathon 2026',
+        desc: '48-hour hackathon building with the latest generative AI APIs. Compete solo or in teams, with mentors, prizes, and free pizza for all participants.',
+        meta: ['June 15, 2026', 'Registration Open'],
+      },
+      {
+        tag: 'Competition',
+        tagClass: 'tag-green',
+        title: 'Kaggle Club Championship',
+        desc: 'An internal Kaggle competition where club members tackle a real-world dataset — from EDA and feature engineering to model submission and leaderboard battles. Great for beginners and veterans alike.',
+        meta: ['July 2026', 'All members welcome'],
+      },
+      {
+        tag: 'Buildathon',
+        tagClass: 'tag-yellow',
+        title: '7-Day AI Buildathon',
+        desc: 'A week-long intensive where teams ideate, design, and ship a working AI-powered product from scratch. Each day has a theme — data, modelling, deployment, UI, and pitch. Best project wins the club spotlight.',
+        meta: ['August 2026', 'Team of 2–4'],
+      },
     ],
     past: [
-      { tag: 'Hackathon', tagClass: 'tag-green', title: 'AI Triathlon', desc: 'A massive multi-stage club event combining coding challenges, model optimization, and rapid prototyping.', meta: ['Late 2025', 'Over 50 participants'] },
-      { tag: 'Talk', tagClass: 'tag-pink', title: 'Transformers Deep-Dive', desc: 'Prof. Aryan Mehta walked us through attention mechanisms and the Transformer architecture.', meta: ['Feb 10, 2026', '80 attendees'] },
+      {
+        tag: 'Workshop',
+        tagClass: 'tag-blue',
+        title: 'Quant Strategy Workshop × WorldQuant Brain',
+        desc: 'The first time a quantitative finance firm visited DAIICT. Mr. Ishan Shandilya from WorldQuant led a hands-on session on building alphas on the WQBrain platform and introduced the International Quant Championship (IQC) with its $100k prize pool. Attracted 160+ students, free pizza, and WorldQuant goodies.',
+        meta: ['April 10, 2025', '160+ attendees'],
+      },
+      {
+        tag: 'Guest Lecture',
+        tagClass: 'tag-green',
+        title: 'Demystifying AI: From Basics to Building AI Agents',
+        desc: 'Ms. Khyati Brahmbhatt (MS-IT 2006 alumna) guided students through the evolution of AI and the shift toward autonomous agents. Covered cutting-edge frameworks like LangChain, LangGraph, CrewAI, and n8n for workflow automation.',
+        meta: ['January 29, 2025', 'Guest Speaker Session'],
+      },
+      {
+        tag: 'Competition',
+        tagClass: 'tag-pink',
+        title: 'i.Prompt — Prompt Engineering at i.Fest\'24',
+        desc: 'Co-hosted with IEEE Student Branch DAIICT at i.Fest\'24, this creative prompt engineering tournament challenged participants to craft hyper-accurate image prompts matching physical reality. Tested both precision and imagination in a fast-paced competitive format.',
+        meta: ['November 16, 2024', 'In collaboration with IEEE DAIICT'],
+      },
+      {
+        tag: 'Talk',
+        tagClass: 'tag-yellow',
+        title: 'Transformers Deep-Dive',
+        desc: 'An in-depth technical session walking students through attention mechanisms, positional encoding, and the full Transformer architecture — with live code walkthroughs and real-world NLP application examples.',
+        meta: ['Feb 10, 2026', '80 attendees'],
+      },
+      {
+        tag: 'Hackathon',
+        tagClass: 'tag-blue',
+        title: 'AI Triathlon',
+        desc: 'A massive multi-stage club championship combining coding challenges, model optimisation, and rapid prototyping rounds. Participants pushed their limits across all three disciplines in a single high-energy event.',
+        meta: ['Late 2025', '50+ participants'],
+      },
     ],
     workshops: [
-      { tag: 'Workshop', tagClass: 'tag-yellow', title: 'Intro to PyTorch', desc: 'Hands-on workshop covering tensors, autograd, and building your first neural network from scratch.', meta: ['Coming Soon'] },
+      {
+        tag: 'Workshop Series',
+        tagClass: 'tag-blue',
+        title: 'AI Odyssey: From Fundamentals to Mastery',
+        desc: 'The flagship lecture series of AI Club DAIICT. Session 1 kicked off the club\'s comprehensive roadmap — from absolute basics to advanced AI applications. Covered the core tool stack: Python, NumPy, Pandas, and Matplotlib with hands-on coding.',
+        meta: ['Ongoing Series', 'All skill levels'],
+      },
+      {
+        tag: 'Workshop',
+        tagClass: 'tag-green',
+        title: 'Hands-on Data Pre-processing',
+        desc: 'A practical "learning by doing" workshop focused on real-world data preprocessing using Pandas and Matplotlib. Students tackled messy datasets with interactive challenges covering null handling, normalisation, and exploratory analysis.',
+        meta: ['Oct 2024', 'Hands-on coding'],
+      },
+      {
+        tag: 'Workshop',
+        tagClass: 'tag-pink',
+        title: 'EDA Session',
+        desc: 'Deep dive into Exploratory Data Analysis — understanding distributions, spotting outliers, visualising correlations, and extracting insights from raw data before modelling.',
+        meta: ['2024–25', 'Beginner friendly'],
+      },
+      {
+        tag: 'Workshop',
+        tagClass: 'tag-yellow',
+        title: 'Intro to PyTorch',
+        desc: 'Hands-on workshop covering tensors, autograd, and building your first neural network from scratch using PyTorch. Perfect for anyone ready to move from theory to real deep learning code.',
+        meta: ['Coming Soon', 'Intermediate level'],
+      },
     ],
   };
+
+  // Featured event for the countdown banner
+  const featured = eventCards.upcoming[0];
 
   return (
     <section id="events" className="relative z-[1] max-w-[1200px] mx-auto px-6 md:px-12 py-24">
       <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-80px' }} transition={{ duration: 0.6 }}>
         <p className="section-label">// 01 — Events</p>
         <h2 className="font-display font-extrabold text-foreground mb-12" style={{ fontSize: 'clamp(28px, 4vw, 44px)' }}>
-          Events & Workshops
+          Events &amp; Workshops
         </h2>
 
-        {/* Highlight */}
+        {/* Highlight banner */}
         <motion.div
           className="rounded-2xl p-8 mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6"
           style={{ background: 'linear-gradient(135deg, hsl(217 91% 60% / 0.1), hsl(160 90% 43% / 0.05))', border: '1px solid hsl(217 91% 60% / 0.25)' }}
@@ -54,10 +137,8 @@ export default function Events() {
         >
           <div>
             <span className="text-xs font-mono text-primary tracking-widest uppercase">Next Up</span>
-            <h3 className="font-display font-bold text-xl text-foreground mt-2">GenAI Hackathon 2026</h3>
-            <p className="text-sm text-muted-foreground mt-2 max-w-md">
-              48-hour hackathon building with the latest generative AI APIs. Prizes, mentors, and free pizza.
-            </p>
+            <h3 className="font-display font-bold text-xl text-foreground mt-2">{featured.title}</h3>
+            <p className="text-sm text-muted-foreground mt-2 max-w-md">{featured.desc}</p>
           </div>
           <div className="flex gap-5">
             {Object.entries(timeLeft).map(([unit, value]) => (
@@ -108,7 +189,7 @@ export default function Events() {
                 key={card.title}
                 layout
                 initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1, transition: { delay: i * 0.1, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } }}
+                animate={{ opacity: 1, y: 0, scale: 1, transition: { delay: i * 0.08, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } }}
                 exit={{ opacity: 0, y: -10, scale: 0.95, transition: { duration: 0.2 } }}
                 whileHover={{ y: -6, transition: { duration: 0.25 } }}
                 className="glass-card relative overflow-hidden p-7"
@@ -116,10 +197,10 @@ export default function Events() {
                 <span className={`${card.tagClass} font-mono text-[10px] tracking-widest uppercase px-3 py-1 rounded`}>{card.tag}</span>
                 <h4 className="font-display font-bold text-lg text-foreground mt-4 mb-2">{card.title}</h4>
                 <p className="text-sm text-muted-foreground leading-relaxed">{card.desc}</p>
-                <div className="flex items-center gap-4 mt-5 pt-4 border-t border-border text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-border text-xs text-muted-foreground">
                   {card.meta.map((m, j) => (
-                    <span key={j} className="flex items-center gap-4">
-                      {j > 0 && <span className="w-1 h-1 bg-muted-foreground rounded-full mr-4" />}
+                    <span key={j} className="flex items-center gap-3">
+                      {j > 0 && <span className="w-1 h-1 bg-muted-foreground rounded-full" />}
                       {m}
                     </span>
                   ))}
