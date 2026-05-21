@@ -1,6 +1,23 @@
-import { members } from "../../data/members";
+import { members, MemberRole } from "../../data/members";
 import { motion } from 'framer-motion';
 import { useState } from 'react';
+
+
+// Role badge colours
+const roleMeta: Record<MemberRole, { label: string; classes: string }> = {
+  'Core Member':          { label: 'Core Member',          classes: 'bg-primary/15 text-primary border border-primary/30' },
+  'Extended Core Member': { label: 'Extended Core Member', classes: 'bg-accent/15 text-accent border border-accent/30' },
+  'Member':               { label: 'Member',               classes: 'bg-secondary text-muted-foreground border border-border' },
+};
+
+const RoleBadge = ({ role }: { role: MemberRole }) => {
+  const { label, classes } = roleMeta[role];
+  return (
+    <span className={`inline-block text-[10px] font-semibold px-2.5 py-0.5 rounded-full mt-1 tracking-wide ${classes}`}>
+      {label}
+    </span>
+  );
+};
 
 const cardVariants = {
   hidden: { opacity: 0, y: 40, scale: 0.9 },
@@ -103,6 +120,9 @@ export default function Team() {
 
               {/* Name */}
               <h4 className="font-display font-bold text-sm text-foreground leading-tight">{m.name}</h4>
+
+              {/* Role badge */}
+              <RoleBadge role={m.role} />
 
               {/* Social links */}
               <div className="flex items-center justify-center gap-3 mt-2">
