@@ -1,7 +1,12 @@
 import { motion } from 'framer-motion';
 import { Github, Twitter, Linkedin } from 'lucide-react';
+import aiClubLogo from '@/assets/ai-club-logo.jpeg';
 
-const socials = [Github, Twitter, Linkedin];
+const socials = [
+  { Icon: Github,   href: 'https://github.com/ParthAgrawal-07/Club_website' },
+  { Icon: Twitter,  href: '#' },
+  { Icon: Linkedin, href: '#' },
+];
 
 export default function Footer() {
   return (
@@ -12,14 +17,22 @@ export default function Footer() {
       viewport={{ once: true }}
       transition={{ duration: 0.6 }}
     >
-      <div className="font-display font-extrabold text-lg">
-        Neural<span className="text-primary">Node</span>
-      </div>
+      {/* Logo + name */}
+      <a href="#" className="flex items-center gap-2.5">
+        <img src={aiClubLogo} alt="AI Club DAIICT Logo" className="w-7 h-7 rounded-sm object-contain" />
+        <span className="font-display font-extrabold text-lg">
+          AI Club <span className="text-primary">DAIICT</span>
+        </span>
+      </a>
+
+      {/* Social icons */}
       <div className="flex gap-3">
-        {socials.map((Icon, i) => (
+        {socials.map(({ Icon, href }, i) => (
           <motion.a
             key={i}
-            href="#"
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
             className="w-9 h-9 border border-border rounded-lg flex items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors"
             whileHover={{ scale: 1.15, y: -2 }}
             whileTap={{ scale: 0.95 }}
@@ -32,7 +45,8 @@ export default function Footer() {
           </motion.a>
         ))}
       </div>
-      <p className="text-xs text-muted-foreground">© 2026 NeuralNode. All rights reserved.</p>
+
+      <p className="text-xs text-muted-foreground">© 2026 AI Club DAIICT. All rights reserved.</p>
     </motion.footer>
   );
 }
