@@ -17,7 +17,7 @@ export const members: Member[] = [
   {
     id: 1,
     name: "Saumya Shah",
-    photo: "", // TODO: add photo URL
+    photo: "https://drive.google.com/u/0/open?usp=forms_web&id=1kHcVHLCWTm5KfsO7rxtL7Hi-t4oAtAyY", // TODO: add photo URL
     description:
       "Passionate about AI/ML and full-stack development. Built an F1 prediction platform combining live standings with machine-learning-powered race forecasts.",
     github: "https://github.com/saumyashah0510",
