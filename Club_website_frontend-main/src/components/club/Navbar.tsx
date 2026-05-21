@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
+import aiClubLogo from '@/assets/ai-club-logo.jpeg';
 
 const navItems = [
   { label: 'Events', href: '#events' },
@@ -29,8 +30,12 @@ export default function Navbar() {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] }}
     >
-      <a href="#" className="font-display font-extrabold text-xl text-foreground tracking-tight">
-        Neural<span className="text-primary">Node</span>
+      {/* Logo + Name */}
+      <a href="#" className="flex items-center gap-2.5">
+        <img src={aiClubLogo} alt="AI Club DAIICT Logo" className="w-8 h-8 rounded-sm object-contain" />
+        <span className="font-display font-extrabold text-xl text-foreground tracking-tight">
+          AI Club <span className="text-primary">DAIICT</span>
+        </span>
       </a>
 
       {/* Desktop */}
