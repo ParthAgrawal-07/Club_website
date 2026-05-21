@@ -53,7 +53,6 @@ function MemberAvatar({ name, photo }: { name: string; photo: string }) {
           className="w-full h-full object-cover object-top"
           onError={() => setImgError(true)}
           referrerPolicy="no-referrer"
-          crossOrigin="anonymous"
         />
       </motion.div>
     );
@@ -132,22 +131,6 @@ export default function Team() {
                   </a>
                 )}
               </div>
-
-              {/* Events badges */}
-              {m.events.length > 0 && (
-                <div className="flex flex-wrap justify-center gap-1 mt-3">
-                  {m.events.slice(0, 2).map((ev) => (
-                    <span key={ev} className="text-[10px] px-2 py-0.5 rounded-full tag-blue font-medium">
-                      {ev}
-                    </span>
-                  ))}
-                  {m.events.length > 2 && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full tag-green font-medium">
-                      +{m.events.length - 2}
-                    </span>
-                  )}
-                </div>
-              )}
 
               {/* Description */}
               {m.description && (

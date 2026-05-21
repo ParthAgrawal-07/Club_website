@@ -13,9 +13,9 @@ export interface Member {
   blog?: string;
 }
 
-// Helper to convert Google Drive share link → direct image URL
+// Helper to build a Google Drive thumbnail URL (no public sharing required)
 const driveImg = (id: string) =>
-  `https://drive.google.com/uc?export=view&id=${id}`;
+  `https://drive.google.com/thumbnail?id=${id}&sz=w400-h400`;
 
 export const members: Member[] = [
   {
