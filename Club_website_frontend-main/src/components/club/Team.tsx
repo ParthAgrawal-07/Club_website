@@ -1,5 +1,6 @@
 import { members } from "../../data/members";
 import { motion } from 'framer-motion';
+import { useState } from 'react';
 
 const cardVariants = {
   hidden: { opacity: 0, y: 40, scale: 0.9 },
@@ -29,6 +30,46 @@ const LinkedInIcon = () => (
   </svg>
 );
 
+/** Renders a member's avatar — photo if available, initials otherwise */
+function MemberAvatar({ name, photo }: { name: string; photo: string }) {
+  const [imgError, setImgError] = useState(false);
+  const initials = name
+    .split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  if (photo && !imgError) {
+    return (
+      <motion.div
+        className="w-[84px] h-[84px] rounded-full mx-auto mb-4 overflow-hidden ring-2 ring-primary/30 ring-offset-2 ring-offset-card"
+        whileHover={{ scale: 1.1, rotate: 2 }}
+        transition={{ type: 'spring', stiffness: 300 }}
+      >
+        <img
+          src={photo}
+          alt={name}
+          className="w-full h-full object-cover object-top"
+          onError={() => setImgError(true)}
+          referrerPolicy="no-referrer"
+          crossOrigin="anonymous"
+        />
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div
+      className="w-[84px] h-[84px] rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center font-display text-2xl font-extrabold text-primary-foreground mx-auto mb-4"
+      whileHover={{ scale: 1.15, rotate: 5 }}
+      transition={{ type: 'spring', stiffness: 300 }}
+    >
+      {initials}
+    </motion.div>
+  );
+}
+
 export default function Team() {
   return (
     <section id="team" className="relative z-[1] max-w-[1200px] mx-auto px-6 md:px-12 py-24">
@@ -43,7 +84,7 @@ export default function Team() {
           Meet the Team
         </h2>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
           {members.map((m, i) => (
             <motion.div
               key={m.id}
@@ -53,19 +94,16 @@ export default function Team() {
               whileInView="visible"
               viewport={{ once: true, margin: '-40px' }}
               whileHover={{ y: -8, transition: { duration: 0.25 } }}
-              className="glass-card relative overflow-hidden p-7 text-center group cursor-pointer flex flex-col items-center"
+              className="glass-card relative overflow-hidden p-6 text-center group cursor-pointer flex flex-col items-center"
             >
-              {/* Avatar — initials from name */}
-              <motion.div
-                className="w-[72px] h-[72px] rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center font-display text-2xl font-extrabold text-primary-foreground mx-auto mb-4"
-                whileHover={{ scale: 1.15, rotate: 5 }}
-                transition={{ type: 'spring', stiffness: 300 }}
-              >
-                {m.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
-              </motion.div>
+              {/* Top gradient bar on hover */}
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary to-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+              {/* Avatar — photo or initials */}
+              <MemberAvatar name={m.name} photo={m.photo} />
 
               {/* Name */}
-              <h4 className="font-display font-bold text-sm text-foreground">{m.name}</h4>
+              <h4 className="font-display font-bold text-sm text-foreground leading-tight">{m.name}</h4>
 
               {/* Social links */}
               <div className="flex items-center justify-center gap-3 mt-2">
@@ -86,7 +124,7 @@ export default function Team() {
                     href={m.linkedin}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-muted-foreground hover:text-primary transition-colors"
                     onClick={(e) => e.stopPropagation()}
                     aria-label="LinkedIn"
                   >
@@ -94,6 +132,22 @@ export default function Team() {
                   </a>
                 )}
               </div>
+
+              {/* Events badges */}
+              {m.events.length > 0 && (
+                <div className="flex flex-wrap justify-center gap-1 mt-3">
+                  {m.events.slice(0, 2).map((ev) => (
+                    <span key={ev} className="text-[10px] px-2 py-0.5 rounded-full tag-blue font-medium">
+                      {ev}
+                    </span>
+                  ))}
+                  {m.events.length > 2 && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full tag-green font-medium">
+                      +{m.events.length - 2}
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Description */}
               {m.description && (
