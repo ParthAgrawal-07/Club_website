@@ -69,11 +69,11 @@ export default function Events() {
         meta: ['Feb 10, 2026', '80 attendees'],
       },
       {
-        tag: 'Hackathon',
+        tag: 'Competition',
         tagClass: 'tag-blue',
         title: 'AI Triathlon',
         desc: 'A massive multi-stage club championship combining coding challenges, model optimisation, and rapid prototyping rounds. Participants pushed their limits across all three disciplines in a single high-energy event.',
-        meta: ['Late 2025', '50+ participants'],
+        meta: ['Oct 2025', '50+ participants'],
       },
     ],
     workshops: [
@@ -89,7 +89,7 @@ export default function Events() {
         tagClass: 'tag-green',
         title: 'Hands-on Data Pre-processing',
         desc: 'A practical "learning by doing" workshop focused on real-world data preprocessing using Pandas and Matplotlib. Students tackled messy datasets with interactive challenges covering null handling, normalisation, and exploratory analysis.',
-        meta: ['Oct 2024', 'Hands-on coding'],
+        meta: ['Oct 2025', 'Hands-on coding'],
       },
       {
         tag: 'Workshop',
@@ -158,9 +158,8 @@ export default function Events() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`relative px-5 py-2.5 text-sm font-medium -mb-px transition-colors ${
-                activeTab === tab ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-              }`}
+              className={`relative px-5 py-2.5 text-sm font-medium -mb-px transition-colors ${activeTab === tab ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+                }`}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
               {activeTab === tab && (
