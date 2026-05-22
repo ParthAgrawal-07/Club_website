@@ -19,6 +19,10 @@ const tagStyleMap: Record<string, { tagClass: string; label: string }> = {
   'Energy':              { tagClass: 'tag-green', label: 'Energy' },
   'Python':              { tagClass: 'tag-blue',  label: 'Python' },
   'OpenCV':              { tagClass: 'tag-pink',  label: 'OpenCV' },
+  'LangGraph':           { tagClass: 'tag-blue',  label: 'LangGraph' },
+  'Multi-Agent':         { tagClass: 'tag-green', label: 'Multi-Agent' },
+  'Recommender System':  { tagClass: 'tag-green', label: 'Recommender System' },
+  'GAN':                 { tagClass: 'tag-pink',  label: 'GAN' },
 };
 
 // Pick the first tag that has a style, for the card badge
