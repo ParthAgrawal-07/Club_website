@@ -4,9 +4,9 @@ import heroBg from '@/assets/hero-bg.jpg';
 import aiClubLogo from '@/assets/ai-club-logo.jpeg';
 
 const stats = [
-  { value: 120, suffix: '+', label: 'Active Members' },
-  { value: 15, suffix: '', label: 'Projects Shipped' },
-  { value: 30, suffix: '+', label: 'Events Held' },
+  { value: 25, suffix: '+', label: 'Active Members' },
+  { value: 8, suffix: '+', label: 'Projects Shipped' },
+  { value: 20, suffix: '+', label: 'Events Held' },
 ];
 
 function AnimatedCounter({ value, suffix }: { value: number; suffix: string }) {
@@ -59,10 +59,11 @@ export default function Hero() {
         {/* Badge */}
         <motion.div
           variants={itemVariants}
-          className="inline-flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-full px-4 py-1.5 text-xs font-mono text-primary mb-8"
+          className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-mono mb-8"
+          style={{ background: 'hsl(340 82% 55% / 0.12)', border: '1px solid hsl(340 82% 55% / 0.35)', color: 'hsl(340 82% 68%)' }}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-accent" style={{ animation: 'pulse-dot 2s infinite' }} />
-          Recruiting 2025–26 · Applications Open
+          <span className="w-1.5 h-1.5 rounded-full bg-current" style={{ animation: 'pulse-dot 2s infinite' }} />
+          Recruitment Closed · Opening Soon
         </motion.div>
 
         {/* Logo + Club name lockup */}
@@ -116,11 +117,12 @@ export default function Hero() {
         <motion.div variants={itemVariants} className="flex flex-wrap gap-4">
           <motion.a
             href="#join"
-            className="btn-glow px-7 py-3.5 rounded-lg text-sm font-semibold text-primary-foreground transition-all"
-            whileHover={{ scale: 1.05, boxShadow: '0 12px 40px hsl(217 91% 60% / 0.4)' }}
+            className="px-7 py-3.5 rounded-lg text-sm font-semibold border transition-all inline-flex items-center gap-2"
+            style={{ background: 'hsl(340 82% 55% / 0.1)', border: '1px solid hsl(340 82% 55% / 0.35)', color: 'hsl(340 82% 68%)' }}
+            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.97 }}
           >
-            Join the Club →
+            🔒 Recruitment Closed
           </motion.a>
           <motion.a
             href="#projects"
