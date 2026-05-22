@@ -6,7 +6,7 @@ export default function Events() {
   const [timeLeft, setTimeLeft] = useState({ d: '00', h: '00', m: '00', s: '00' });
 
   useEffect(() => {
-    const target = new Date('2026-06-15T09:00:00').getTime();
+    const target = new Date('2026-05-29T18:00:00').getTime();
     const interval = setInterval(() => {
       const diff = target - Date.now();
       if (diff <= 0) { clearInterval(interval); return; }
@@ -25,18 +25,11 @@ export default function Events() {
   const eventCards: Record<string, Array<{ tag: string; tagClass: string; title: string; desc: string; meta: string[] }>> = {
     upcoming: [
       {
-        tag: 'Hackathon',
+        tag: 'Kaggle Contest',
         tagClass: 'tag-blue',
-        title: 'GenAI Hackathon 2026',
-        desc: '48-hour hackathon building with the latest generative AI APIs. Compete solo or in teams, with mentors, prizes, and free pizza for all participants.',
-        meta: ['June 15, 2026', 'Registration Open'],
-      },
-      {
-        tag: 'Competition',
-        tagClass: 'tag-green',
-        title: 'Kaggle Club Championship',
-        desc: 'An internal Kaggle competition where club members tackle a real-world dataset — from EDA and feature engineering to model submission and leaderboard battles. Great for beginners and veterans alike.',
-        meta: ['July 2026', 'All members welcome'],
+        title: 'AI Club Kaggle Contest 2026',
+        desc: 'A college-wide Kaggle competition open to every student at DAIICT — not just club members. Tackle a real-world machine learning dataset, climb the leaderboard, and compete for glory. Whether you are a beginner or a seasoned data scientist, this is your arena.',
+        meta: ['May 29 – 30, 2026', 'Open to All DAIICT Students'],
       },
       {
         tag: 'Buildathon',
@@ -121,7 +114,7 @@ export default function Events() {
   return (
     <section id="events" className="relative z-[1] max-w-[1200px] mx-auto px-6 md:px-12 py-24">
       <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-80px' }} transition={{ duration: 0.6 }}>
-        <p className="section-label">// 01 — Events</p>
+        <p className="section-label">01 — Events</p>
         <h2 className="font-display font-extrabold text-foreground mb-12" style={{ fontSize: 'clamp(28px, 4vw, 44px)' }}>
           Events &amp; Workshops
         </h2>

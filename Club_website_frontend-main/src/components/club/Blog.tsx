@@ -60,7 +60,7 @@ export default function Blog() {
         viewport={{ once: true, margin: '-80px' }}
         transition={{ duration: 0.6 }}
       >
-        <p className="section-label">// 05 — Blog</p>
+        <p className="section-label">05 — Blog</p>
         <div className="flex items-end justify-between mb-12 flex-wrap gap-4">
           <h2
             className="font-display font-extrabold text-foreground"

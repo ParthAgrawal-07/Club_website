@@ -10,7 +10,7 @@ export default function Resources() {
   return (
     <section id="resources" className="relative z-[1] max-w-[1200px] mx-auto px-6 md:px-12 py-24">
       <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-80px' }} transition={{ duration: 0.6 }}>
-        <p className="section-label">// 04 — Resources</p>
+        <p className="section-label">04 — Resources</p>
         <h2 className="font-display font-extrabold text-foreground mb-12" style={{ fontSize: 'clamp(28px, 4vw, 44px)' }}>
           Learning Resources
         </h2>

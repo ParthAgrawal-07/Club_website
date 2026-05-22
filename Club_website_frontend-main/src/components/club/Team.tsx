@@ -95,7 +95,7 @@ export default function Team() {
         viewport={{ once: true, margin: '-80px' }}
         transition={{ duration: 0.6 }}
       >
-        <p className="section-label">// 03 — Team</p>
+        <p className="section-label">03 — Team</p>
         <h2 className="font-display font-extrabold text-foreground mb-12" style={{ fontSize: 'clamp(28px, 4vw, 44px)' }}>
           Meet the Team
         </h2>

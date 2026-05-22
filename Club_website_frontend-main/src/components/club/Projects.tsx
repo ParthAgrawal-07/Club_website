@@ -68,7 +68,7 @@ export default function Projects() {
         viewport={{ once: true, margin: '-80px' }}
         transition={{ duration: 0.6 }}
       >
-        <p className="section-label">// 02 — Projects</p>
+        <p className="section-label">02 — Projects</p>
         <h2 className="font-display font-extrabold text-foreground mb-12" style={{ fontSize: 'clamp(28px, 4vw, 44px)' }}>
           Student Projects
         </h2>

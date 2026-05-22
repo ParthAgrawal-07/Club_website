@@ -54,7 +54,7 @@ export default function JoinForm() {
         <div className="rounded-3xl p-8 md:p-16 text-center"
           style={{ background: 'linear-gradient(135deg, hsl(217 91% 60% / 0.12), hsl(340 82% 55% / 0.06))', border: '1px solid hsl(217 91% 60% / 0.2)' }}
         >
-          <p className="section-label">// 06 — Join Us</p>
+          <p className="section-label">06 — Join Us</p>
           <h2 className="font-display font-extrabold text-foreground mb-4" style={{ fontSize: 'clamp(28px, 4vw, 44px)' }}>
             Ready to Build the Future?
           </h2>
