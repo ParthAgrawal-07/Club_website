@@ -59,7 +59,7 @@ export default function JoinForm() {
             Ready to Build the Future?
           </h2>
           <p className="text-muted-foreground max-w-md mx-auto mb-10 leading-relaxed">
-            Whether you're a complete beginner or a published researcher, NeuralNode has a place for you.
+            Whether you're a complete beginner or a published researcher, AI Club DAIICT has a place for you.
           </p>
 
           <form onSubmit={handleSubmit} className="max-w-2xl mx-auto text-left">
