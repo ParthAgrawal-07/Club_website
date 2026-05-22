@@ -76,7 +76,7 @@ export const projects: Project[] = [
   {
     id: 5,
     title: "GAIA Agent",
-    author: "Jash Patel",
+    author: "Jash Shah",
     authorId: 2,
     description:
       "A LangGraph-powered multi-agent system with a supervisor that delegates real-world GAIA benchmark questions to specialized sub-agents for web search, code execution, file processing, and video analysis.",
@@ -91,7 +91,7 @@ export const projects: Project[] = [
   {
     id: 6,
     title: "Financial Asset Recommender",
-    author: "Jash Patel",
+    author: "Jash Shah",
     authorId: 2,
     description:
       "A modular hybrid recommender system for financial assets combining 5 algorithms and 11 evaluation metrics with cold-start handling and an interactive Streamlit UI for personalized investment suggestions.",
@@ -106,7 +106,7 @@ export const projects: Project[] = [
   {
     id: 7,
     title: "Edge Style GAN",
-    author: "Jash Patel",
+    author: "Jash Shah",
     authorId: 2,
     description:
       "An edge-optimized implementation of MobileStyleGAN in PyTorch, enabling high-quality style-based image generation on resource-constrained devices with significantly reduced model size and inference cost.",
