@@ -18,82 +18,82 @@ app.use(cors({
   credentials: true,
 }));
 
-// Middleware
 app.use(express.json());
 
-// Database Connection
-const MONGO_URI =
-  process.env.MONGO_URI ||
-  'mongodb+srv://parthagrawal2904_db_user:Parth2904@cluster0.lipdzoi.mongodb.net/?appName=Cluster0';
-
+// ── DB ──
 mongoose
-  .connect(MONGO_URI)
-  .then(() => console.log('✅ Connected to MongoDB Database'))
-  .catch((err) => console.error('❌ MongoDB connection error:', err));
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch((err) => console.error('❌ MongoDB error:', err));
 
-// ==========================================
-// API ROUTES
-// ==========================================
+// ── HELPERS ──
+async function getGoogleUserInfo(accessToken) {
+  const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return null;
+  return res.json(); // { sub, email, name, picture }
+}
 
-// Health check
+// ── ROUTES ──
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
-// POST Route: Submit a club membership application
 app.post('/api/apply', async (req, res) => {
   try {
     const { name, email, branch, interest, reason } = req.body;
-
-    const newApplication = new Application({ name, email, branch, interest, reason });
-    await newApplication.save();
-
+    await new Application({ name, email, branch, interest, reason }).save();
     res.status(201).json({ message: 'Application submitted successfully!' });
   } catch (error) {
-    console.error(error);
-    if (error.code === 11000) {
-      return res.status(400).json({ error: 'This email has already been used to apply.' });
-    }
-    res.status(500).json({ error: 'Server error. Please try again later.' });
+    if (error.code === 11000) return res.status(400).json({ error: 'Email already used.' });
+    res.status(500).json({ error: 'Server error.' });
   }
 });
 
-// ==========================================
-// KAGGLE CONTEST REGISTRATION
-// ==========================================
-
-// POST /api/kaggle-register  — Register for the Kaggle Contest
+// POST /api/kaggle-register
+// Body: { accessToken, googleId, name, email, picture, kaggleId }
 app.post('/api/kaggle-register', async (req, res) => {
   try {
-    const { name, email, kaggleId } = req.body;
+    const { accessToken, googleId, name, email, picture, kaggleId } = req.body;
 
-    if (!name || !email || !kaggleId) {
-      return res.status(400).json({ error: 'All fields (name, email, kaggleId) are required.' });
+    if (!accessToken || !googleId || !kaggleId) {
+      return res.status(400).json({ error: 'Missing required fields.' });
     }
 
-    const existing = await KaggleRegistration.findOne({
-      $or: [{ email: email.toLowerCase() }, { kaggleId }],
-    });
-
-    if (existing) {
-      if (existing.email === email.toLowerCase()) {
-        return res.status(409).json({ error: 'This email is already registered for the contest.' });
-      }
-      return res.status(409).json({ error: 'This Kaggle ID is already registered for the contest.' });
+    // Verify the access token with Google to prevent spoofing
+    const info = await getGoogleUserInfo(accessToken);
+    if (!info || info.sub !== googleId) {
+      return res.status(401).json({ error: 'Invalid Google session. Please sign in again.' });
     }
 
-    const registration = new KaggleRegistration({ name, email, kaggleId });
-    await registration.save();
+    // One Google account → one registration
+    const byGoogle = await KaggleRegistration.findOne({ googleId: info.sub });
+    if (byGoogle) {
+      return res.status(409).json({ error: `${info.email} has already registered for the contest.` });
+    }
 
-    res.status(201).json({ message: '🎉 Successfully registered for the Kaggle Contest!' });
+    // One Kaggle ID → one registration
+    const byKaggle = await KaggleRegistration.findOne({ kaggleId: kaggleId.trim() });
+    if (byKaggle) {
+      return res.status(409).json({ error: 'This Kaggle ID is already registered.' });
+    }
+
+    await new KaggleRegistration({
+      googleId: info.sub,
+      name: info.name || name,
+      email: info.email || email,
+      picture: info.picture || picture || '',
+      kaggleId: kaggleId.trim(),
+    }).save();
+
+    res.status(201).json({ message: `🎉 Successfully registered! Welcome, ${info.name}!` });
   } catch (error) {
     console.error('Kaggle registration error:', error);
-    if (error.code === 11000) {
-      return res.status(409).json({ error: 'Duplicate entry — email or Kaggle ID already registered.' });
-    }
+    if (error.code === 11000) return res.status(409).json({ error: 'Already registered.' });
     res.status(500).json({ error: 'Server error. Please try again later.' });
   }
 });
 
-// GET /api/kaggle-registrations — Fetch all registrations (admin use)
+// GET /api/kaggle-registrations — all entries (admin use)
 app.get('/api/kaggle-registrations', async (_req, res) => {
   try {
     const registrations = await KaggleRegistration.find().sort({ registeredAt: -1 });
@@ -103,13 +103,7 @@ app.get('/api/kaggle-registrations', async (_req, res) => {
   }
 });
 
-// Start the server
+// ──────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
-
-// ==========================================
-// REQUIRED FOR VERCEL HOSTING
-// ==========================================
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 module.exports = app;
