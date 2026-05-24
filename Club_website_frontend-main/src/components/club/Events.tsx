@@ -48,6 +48,7 @@ export default function Events() {
   const [responses, setResponses] = useState<Record<string, any>>({});
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, File>>({});
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [registeredEventIds, setRegisteredEventIds] = useState<number[]>([]);
 
   // Team Registration state
   const [teamName, setTeamName] = useState('');
@@ -78,8 +79,32 @@ export default function Events() {
     }
   };
 
+  const fetchUserData = async () => {
+    try {
+      const authRes = await fetch(getApiUrl('/api/auth/me'), { credentials: 'include' });
+      if (authRes.ok) {
+        const authData = await authRes.json();
+        if (authData.authenticated && authData.user) {
+          setUserProfile(authData.user);
+          
+          // Fetch registrations
+          const regRes = await fetch(getApiUrl('/api/user/registrations'), { credentials: 'include' });
+          if (regRes.ok) {
+            const regData = await regRes.json();
+            if (regData.registrations) {
+              setRegisteredEventIds(regData.registrations.map((r: any) => r.event.id));
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch user data', e);
+    }
+  };
+
   useEffect(() => {
     fetchEvents();
+    fetchUserData();
   }, []);
 
   const featured = events.find(ev => ev.status === 'registration_open') || events[0];
@@ -352,12 +377,18 @@ export default function Events() {
               <h3 className="font-display font-bold text-xl text-foreground mt-2">{featured.title}</h3>
               <p className="text-sm text-muted-foreground mt-2 max-w-md">{featured.description}</p>
               {featured.status === 'registration_open' && (
-                <button
-                  onClick={() => setSelectedEvent(featured)}
-                  className="mt-4 px-4 py-2 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 hover:scale-105 transition-all duration-300"
-                >
-                  Register Now
-                </button>
+                registeredEventIds.includes(featured.id) ? (
+                  <button disabled className="mt-4 px-4 py-2 text-xs font-semibold rounded-lg bg-primary/20 text-primary border border-primary/20 cursor-not-allowed">
+                    Already Registered
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setSelectedEvent(featured)}
+                    className="mt-4 px-4 py-2 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 hover:scale-105 transition-all duration-300"
+                  >
+                    Register Now
+                  </button>
+                )
               )}
             </div>
             <div className="flex gap-5">
@@ -438,12 +469,18 @@ export default function Events() {
                     </div>
 
                     {card.status === 'registration_open' && (
-                      <button
-                        onClick={() => setSelectedEvent(card)}
-                        className="mt-5 w-full py-2 text-xs font-semibold rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300 flex items-center justify-center gap-1.5"
-                      >
-                        Register Now
-                      </button>
+                      registeredEventIds.includes(card.id) ? (
+                        <button disabled className="mt-5 w-full py-2 text-xs font-semibold rounded-lg bg-primary/10 border border-primary/20 text-primary/50 cursor-not-allowed flex items-center justify-center gap-1.5">
+                          Already Registered
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setSelectedEvent(card)}
+                          className="mt-5 w-full py-2 text-xs font-semibold rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300 flex items-center justify-center gap-1.5"
+                        >
+                          Register Now
+                        </button>
+                      )
                     )}
                   </div>
                 </motion.div>
