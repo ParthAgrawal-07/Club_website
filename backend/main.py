@@ -1,5 +1,7 @@
 import os
 import logging
+import asyncio
+import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -93,6 +95,21 @@ app.include_router(admin_router)
 
 
 # ── Startup ────────────────────────────────────────────────────────────────
+async def keep_alive_task():
+    """
+    Pings the API itself every 14 minutes and 50 seconds to prevent
+    Render free tier from spinning down the instance.
+    """
+    url = "https://ai-club-website-e0u3.onrender.com/docs"
+    while True:
+        await asyncio.sleep(890)  # 14 minutes and 50 seconds
+        try:
+            async with httpx.AsyncClient() as client:
+                await client.get(url)
+                logging.info(f"Keep-alive ping sent to {url}")
+        except Exception as e:
+            logging.error(f"Keep-alive ping failed: {e}")
+
 @app.on_event("startup")
 async def startup():
     # Validate auth configuration early so we fail fast.
@@ -100,6 +117,9 @@ async def startup():
     # Auto-create all tables (idempotent).
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        
+    # Start the keep-alive background task
+    asyncio.create_task(keep_alive_task())
 
 # ── Gemini AI setup ────────────────────────────────────────────────────────
 ai_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
