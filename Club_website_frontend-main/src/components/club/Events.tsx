@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
 
 export default function Events() {
   const [activeTab, setActiveTab] = useState('upcoming');
@@ -197,6 +198,36 @@ export default function Events() {
                     </span>
                   ))}
                 </div>
+                {card.tag === 'Kaggle Contest' && (
+                  <Link
+                    to="/kaggle-register"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginTop: '16px',
+                      padding: '9px 20px',
+                      background: 'linear-gradient(135deg, hsl(217 91% 58%), hsl(230 75% 62%))',
+                      color: '#fff',
+                      borderRadius: '10px',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      textDecoration: 'none',
+                      boxShadow: '0 4px 18px hsl(217 91% 58% / 0.35)',
+                      transition: 'transform 0.2s, box-shadow 0.2s',
+                    }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(-2px)';
+                      (e.currentTarget as HTMLAnchorElement).style.boxShadow = '0 8px 28px hsl(217 91% 58% / 0.55)';
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(0)';
+                      (e.currentTarget as HTMLAnchorElement).style.boxShadow = '0 4px 18px hsl(217 91% 58% / 0.35)';
+                    }}
+                  >
+                    Register Now →
+                  </Link>
+                )}
               </motion.div>
             ))}
           </AnimatePresence>
