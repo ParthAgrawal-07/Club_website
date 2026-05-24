@@ -92,7 +92,7 @@ export default function Events() {
           if (regRes.ok) {
             const regData = await regRes.json();
             if (regData.registrations) {
-              setRegisteredEventIds(regData.registrations.map((r: any) => r.event.id));
+              setRegisteredEventIds(regData.registrations.map((r: any) => r.event_id));
             }
           }
         }
