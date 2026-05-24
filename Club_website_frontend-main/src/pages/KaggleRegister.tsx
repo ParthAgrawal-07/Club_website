@@ -8,19 +8,22 @@ const PARTICLES = Array.from({ length: 22 }, (_, i) => ({
   size: Math.random() * 3 + 1, duration: Math.random() * 12 + 8, delay: Math.random() * 6,
 }));
 
-type Status = 'idle' | 'signing' | 'form' | 'submitting' | 'success' | 'error';
+// 'error' = Google auth failed (step 1)
+// 'formError' = submission failed (stay on step 2)
+type Status = 'idle' | 'signing' | 'form' | 'submitting' | 'success' | 'error' | 'formError';
 
 interface GoogleUser {
   googleId: string; name: string; email: string; picture: string; credential: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
 
 export default function KaggleRegister() {
   const [status, setStatus] = useState<Status>('idle');
   const [user, setUser] = useState<GoogleUser | null>(null);
   const [kaggleId, setKaggleId] = useState('');
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState('');    // google-step errors
+  const [formError, setFormError] = useState(''); // form-step errors
   const [focused, setFocused] = useState(false);
 
   /* ── Step 1: Google Sign-In ── */
@@ -56,6 +59,7 @@ export default function KaggleRegister() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !kaggleId.trim()) return;
+    setFormError('');
     setStatus('submitting');
 
     try {
@@ -76,17 +80,18 @@ export default function KaggleRegister() {
         setStatus('success');
         setMessage(data.message || 'Registration successful!');
       } else {
-        setMessage(data.error || 'Something went wrong.');
-        setStatus('error');
+        // Stay on the form — just show the error inline
+        setFormError(data.error || 'Something went wrong. Please try again.');
+        setStatus('form');
       }
     } catch {
-      setMessage('Network error — make sure the backend server is running.');
-      setStatus('error');
+      setFormError('Cannot reach the server. Please check your connection and try again.');
+      setStatus('form');
     }
   };
 
   const reset = () => {
-    setStatus('idle'); setUser(null); setKaggleId(''); setMessage('');
+    setStatus('idle'); setUser(null); setKaggleId(''); setMessage(''); setFormError('');
   };
 
   return (
@@ -192,7 +197,7 @@ export default function KaggleRegister() {
           )}
 
           {/* ── STEP 2: Enter Kaggle ID ── */}
-          {(status === 'form' || status === 'submitting') && user && (
+          {(status === 'form' || status === 'submitting' || status === 'formError') && user && (
             <motion.form key="form" className="kr-step" onSubmit={handleSubmit}
               initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.4 }}>
@@ -220,7 +225,7 @@ export default function KaggleRegister() {
                     name="kaggleId"
                     type="text"
                     value={kaggleId}
-                    onChange={e => setKaggleId(e.target.value)}
+                    onChange={e => { setKaggleId(e.target.value); setFormError(''); }}
                     onFocus={() => setFocused(true)}
                     onBlur={() => setFocused(false)}
                     placeholder="Your Kaggle username (e.g. parth2904)"
@@ -247,6 +252,17 @@ export default function KaggleRegister() {
                   ? <span className="kr-spinner" />
                   : <>Register for the Contest <span className="kr-arrow">→</span></>}
               </motion.button>
+
+              {/* Form-level error — stays on step 2 */}
+              <AnimatePresence>
+                {formError && (
+                  <motion.div className="kr-error"
+                    initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}>
+                    ⚠️ {formError}
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <p className="kr-note">🔒 Stored securely in MongoDB. No spam, ever.</p>
             </motion.form>
