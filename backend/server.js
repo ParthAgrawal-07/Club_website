@@ -10,7 +10,7 @@ const app = express();
 
 app.use(cors({
   origin: [
-    'https://club-website-eta.vercel.app',
+    'https://aiclubdau.vercel.app',
     'http://localhost:5173',
     'http://localhost:8080',
     'http://localhost:3000',
