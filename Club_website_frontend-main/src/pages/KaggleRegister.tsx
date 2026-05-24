@@ -228,7 +228,7 @@ export default function KaggleRegister() {
                     onChange={e => { setKaggleId(e.target.value); setFormError(''); }}
                     onFocus={() => setFocused(true)}
                     onBlur={() => setFocused(false)}
-                    placeholder="Your Kaggle username (e.g. parth2904)"
+                    placeholder="Your Kaggle username"
                     required
                     autoComplete="off"
                     className="kr-input"
