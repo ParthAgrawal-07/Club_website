@@ -89,7 +89,7 @@ app.post('/api/kaggle-register', async (req, res) => {
   } catch (error) {
     console.error('Kaggle registration error:', error);
     if (error.code === 11000) return res.status(409).json({ error: 'Already registered.' });
-    res.status(500).json({ error: 'Server error. Please try again later.' });
+    res.status(500).json({ error: 'Server error: ' + error.message });
   }
 });
 
