@@ -104,9 +104,9 @@ export default function Navbar() {
         transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] }}
       >
         <a href="#" className="flex items-center gap-2.5">
-          <img src={aiClubLogo} alt="AI Club DAIICT Logo" className="w-8 h-8 rounded-sm object-contain" />
+          <img src={aiClubLogo} alt="AI Club DAU Logo" className="w-8 h-8 rounded-sm object-contain" />
           <span className="font-display font-extrabold text-xl text-foreground tracking-tight">
-            AI Club <span className="text-primary">DAIICT</span>
+            AI Club <span className="text-primary">DAU</span>
           </span>
         </a>
 

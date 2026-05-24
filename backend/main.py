@@ -42,7 +42,7 @@ from admin.routes import router as admin_router
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI(title="AI Club DAIICT API", version="1.0.0")
+app = FastAPI(title="AI Club DAU API", version="1.0.0")
 
 # --- CORS SETUP ---
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
@@ -128,17 +128,17 @@ ai_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 # STATIC KNOWLEDGE BASE — mirrors everything displayed on the website
 # ---------------------------------------------------------------------------
 CLUB_KNOWLEDGE = """
-=== AI CLUB DAIICT — COMPLETE KNOWLEDGE BASE ===
+=== AI CLUB DAU — COMPLETE KNOWLEDGE BASE ===
 
 ABOUT THE CLUB:
-AI Club DAIICT is the Artificial Intelligence and Machine Learning club at DA-IICT (Dhirubhai Ambani Institute of Information and Communication Technology), Gandhinagar, Gujarat, India.
+AI Club DAU is the Artificial Intelligence and Machine Learning club at DAU (Dhirubhai Ambani Institute of Information and Communication Technology), Gandhinagar, Gujarat, India.
 The club runs events, workshops, hackathons, and collaborative projects to help students explore AI/ML.
 
 SOCIAL LINKS:
 - Discord: https://discord.gg/yB3Huet5
-- Instagram: https://www.instagram.com/aiclub_daiict/
-- GitHub: https://github.com/ai-club-daiict
-- LinkedIn: https://www.linkedin.com/company/ai-club-daiict/
+- Instagram: https://www.instagram.com/aiclub_dau/
+- GitHub: https://github.com/ai-club-dau
+- LinkedIn: https://www.linkedin.com/company/ai-club-dau/
 
 HOW TO JOIN:
 Fill out the Join Form on the website with your name, email, branch, interest area, and reason for joining.
@@ -264,11 +264,11 @@ The club provides curated learning resources for AI/ML topics including Python, 
 
 FREQUENTLY ASKED QUESTIONS:
 
-Q: How do I join AI Club DAIICT?
+Q: How do I join AI Club DAU?
 A: Fill out the Join Form on the website at the bottom of the page. Provide your name, email, branch, area of interest, and reason for joining.
 
 Q: Who can join?
-A: Any DA-IICT student interested in AI/ML can apply. All branches are welcome.
+A: Any DAU student interested in AI/ML can apply. All branches are welcome.
 
 Q: What events does the club run?
 A: The club runs hackathons, workshops, deep-dive talks, and competitions. Past events include AI Triathlon, EDA Sessions, Linear Regression workshops, Intro to Python, Wearable AI, and more.
@@ -280,7 +280,7 @@ Q: Who are the core members?
 A: Aaditya Sarda is the Core Member. Manal Patel is an Extended Core Member.
 
 Q: Where can I find the club on social media?
-A: Discord: https://discord.gg/yB3Huet5 | Instagram: @aiclub_daiict | GitHub: ai-club-daiict | LinkedIn: AI Club DAIICT
+A: Discord: https://discord.gg/yB3Huet5 | Instagram: @aiclub_dau | GitHub: ai-club-dau | LinkedIn: AI Club DAU
 """
 
 # --- DATA MODELS ---
@@ -308,14 +308,14 @@ LATEST EVENT FROM DATABASE:
 - Venue: {latest_event.venue}
 """
 
-        system_prompt = f"""You are NeuralNode, the official AI assistant of AI Club DAIICT — a friendly, knowledgeable, and enthusiastic chatbot embedded on the club's website.
+        system_prompt = f"""You are NeuralNode, the official AI assistant of AI Club DAU — a friendly, knowledgeable, and enthusiastic chatbot embedded on the club's website.
 
-Your job is to help visitors learn about the club — its members, projects, events, blogs, how to join, and anything else related to AI Club DAIICT.
+Your job is to help visitors learn about the club — its members, projects, events, blogs, how to join, and anything else related to AI Club DAU.
 
 RULES:
 - Be warm, concise, and helpful. Use a conversational but professional tone.
-- Only answer questions related to AI Club DAIICT, its members, projects, events, AI/ML topics, or the website content.
-- If asked something completely unrelated (e.g., unrelated coding questions, personal advice), politely redirect: "I'm best at answering questions about AI Club DAIICT! Ask me about our members, projects, events, or how to join."
+- Only answer questions related to AI Club DAU, its members, projects, events, AI/ML topics, or the website content.
+- If asked something completely unrelated (e.g., unrelated coding questions, personal advice), politely redirect: "I'm best at answering questions about AI Club DAU! Ask me about our members, projects, events, or how to join."
 - When listing members, projects, or events, be specific and accurate — use ONLY the data below.
 - If you don't know something, say so honestly rather than making up information.
 - Format responses clearly. Use short paragraphs or bullet points where helpful.

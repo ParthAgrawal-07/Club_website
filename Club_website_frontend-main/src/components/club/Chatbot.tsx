@@ -19,7 +19,7 @@ export default function Chatbot() {
   const [messages, setMessages] = useState<Message[]>([
     {
       sender: 'bot',
-      text: "Hey there! 👋 I'm NeuralNode, AI Club DAIICT's assistant. Ask me anything about the club, events, members, or how to join!",
+      text: "Hey there! 👋 I'm NeuralNode, AI Club DAU's assistant. Ask me anything about the club, events, members, or how to join!",
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
@@ -89,7 +89,7 @@ export default function Chatbot() {
                 <span className="font-display font-bold text-sm text-foreground">NeuralNode</span>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-accent" style={{ animation: 'pulse-dot 2s ease-in-out infinite' }} />
-                  <span className="text-[10px] text-muted-foreground">AI Club DAIICT Assistant</span>
+                  <span className="text-[10px] text-muted-foreground">AI Club DAU Assistant</span>
                 </div>
               </div>
               <button
