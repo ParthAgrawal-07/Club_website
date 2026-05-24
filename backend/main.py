@@ -2,6 +2,7 @@ import os
 import logging
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from google import genai
 from dotenv import load_dotenv
@@ -61,6 +62,12 @@ app.add_middleware(
     allow_headers=["*"],
     max_age=600,
 )
+
+# --- SERVE UPLOADS STATICALLY ---
+uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+os.makedirs(uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+
 
 # --- DATABASE MODELS ---
 class User(Base):

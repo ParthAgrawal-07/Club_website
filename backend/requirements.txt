@@ -1,6 +1,8 @@
 # ─── Core web framework ───────────────────────────────────────────────────────
 fastapi
 uvicorn[standard]
+aiofiles
+
 
 # ─── Database ─────────────────────────────────────────────────────────────────
 SQLAlchemy[asyncio]
