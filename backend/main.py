@@ -17,8 +17,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
+        "http://localhost:8080",
+        "http://localhost:3000",
+        "https://aiclubdau.vercel.app",
         "https://club-website-7aay.vercel.app",
-        "https://club-website-eta.vercel.app"
+        "https://club-website-eta.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],

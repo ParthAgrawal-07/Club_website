@@ -4,12 +4,19 @@
     {
       "src": "server.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "main.py",
+      "use": "@vercel/python"
     }
   ],
   "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "server.js"
-    }
+    { "src": "/api/club-chat",            "dest": "main.py" },
+    { "src": "/api/admin/(.*)",           "dest": "main.py" },
+    { "src": "/api/kaggle-register",      "dest": "server.js" },
+    { "src": "/api/kaggle-registrations", "dest": "server.js" },
+    { "src": "/api/apply",                "dest": "server.js" },
+    { "src": "/api/health",               "dest": "server.js" },
+    { "src": "/(.*)",                     "dest": "server.js" }
   ]
 }
