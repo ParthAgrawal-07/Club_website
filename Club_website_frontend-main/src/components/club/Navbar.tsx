@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, LogOut, Shield } from 'lucide-react';
+import { Menu, X, LogOut, Shield, Loader2 } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import aiClubLogo from '@/assets/ai-club-logo.jpeg';
 
@@ -23,6 +23,7 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -43,11 +44,14 @@ export default function Navbar() {
               email: data.user.email,
               picture: data.user.profile_image || ''
             });
+            setIsInitializing(false);
             return;
           }
         }
       } catch (e) {
         console.error('Auth check failed:', e);
+      } finally {
+        setIsInitializing(false);
       }
       setUser(null);
     };
@@ -95,6 +99,20 @@ export default function Navbar() {
 
   return (
     <>
+      <AnimatePresence>
+        {isInitializing && (
+          <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background/80 backdrop-blur-md"
+          >
+            <Loader2 className="animate-spin text-primary w-12 h-12 mb-4" />
+            <p className="text-xs font-mono tracking-widest text-primary uppercase">Loading...</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.nav
         className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-12 h-16 backdrop-blur-xl border-b transition-colors duration-300 ${
           scrolled ? 'bg-background/90 border-border' : 'bg-transparent border-transparent'
