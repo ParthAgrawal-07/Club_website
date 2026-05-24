@@ -286,7 +286,7 @@ export default function Roadmap() {
         viewport={{ once: true, margin: '-80px' }}
         transition={{ duration: 0.6 }}
       >
-        <p className="section-label">05 — Roadmaps</p>
+        <p className="section-label">04 — Roadmaps</p>
         <h2
           className="font-display font-extrabold text-foreground mb-4"
           style={{ fontSize: 'clamp(28px, 4vw, 44px)' }}
