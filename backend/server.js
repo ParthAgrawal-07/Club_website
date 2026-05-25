@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
-const Application = require('./models/Application');
 const KaggleRegistration = require('./models/KaggleRegistration');
 
 const app = express();
@@ -38,16 +37,7 @@ async function getGoogleUserInfo(accessToken) {
 // ── ROUTES ──
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
-app.post('/api/apply', async (req, res) => {
-  try {
-    const { name, email, branch, interest, reason } = req.body;
-    await new Application({ name, email, branch, interest, reason }).save();
-    res.status(201).json({ message: 'Application submitted successfully!' });
-  } catch (error) {
-    if (error.code === 11000) return res.status(400).json({ error: 'Email already used.' });
-    res.status(500).json({ error: 'Server error.' });
-  }
-});
+
 
 // POST /api/kaggle-register
 // Body: { accessToken, googleId, name, email, picture, kaggleId }
