@@ -8,9 +8,13 @@ const KaggleRegistration = require('./models/KaggleRegistration');
 
 const app = express();
 
+// ── CORS ──
 app.use(cors({
   origin: [
     'https://aiclubdau.vercel.app',
+    'https://ai-club-website-mu.vercel.app',
+    'https://club-website-eta.vercel.app',
+    'https://club-website-7aay.vercel.app',
     'http://localhost:5173',
     'http://localhost:8080',
     'http://localhost:3000',
@@ -18,13 +22,30 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 // ── DB ──
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch((err) => console.error('❌ MongoDB error:', err));
+
+// ── ADMIN AUTH MIDDLEWARE ──
+function requireAdmin(req, res, next) {
+  const adminKey = process.env.ADMIN_API_KEY;
+  if (!adminKey) {
+    // No key set — open only in development
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(503).json({ error: 'Admin not configured' });
+    }
+    return next();
+  }
+  const provided = req.headers['x-admin-key'];
+  if (!provided || provided !== adminKey) {
+    return res.status(401).json({ error: 'Unauthorized: invalid admin key' });
+  }
+  next();
+}
 
 // ── HELPERS ──
 async function getGoogleUserInfo(accessToken) {
@@ -36,7 +57,7 @@ async function getGoogleUserInfo(accessToken) {
 }
 
 // ── ROUTES ──
-app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/api/health', (_req, res) => res.json({ status: 'ok', db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' }));
 
 app.post('/api/apply', async (req, res) => {
   try {
@@ -93,14 +114,19 @@ app.post('/api/kaggle-register', async (req, res) => {
   }
 });
 
-// GET /api/kaggle-registrations — all entries (admin use)
-app.get('/api/kaggle-registrations', async (_req, res) => {
+// GET /api/kaggle-registrations — all entries (admin use, protected)
+app.get('/api/kaggle-registrations', requireAdmin, async (_req, res) => {
   try {
     const registrations = await KaggleRegistration.find().sort({ registeredAt: -1 });
     res.json(registrations);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch registrations.' });
   }
+});
+
+// ── CATCH-ALL 404 ──
+app.use((_req, res) => {
+  res.status(404).json({ error: 'Route not found' });
 });
 
 // ──────────────────────────────────────────────────────────

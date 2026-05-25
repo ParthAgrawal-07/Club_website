@@ -1,16 +1,18 @@
 import os
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, EmailStr
+from fastapi.security.api_key import APIKeyHeader
+from pydantic import BaseModel, EmailStr, field_validator
 from motor.motor_asyncio import AsyncIOMotorClient
 from google import genai
 from dotenv import load_dotenv
 from datetime import datetime
+import re
 
 load_dotenv()
 
 # --- CRITICAL: Vercel specifically looks for this 'app' variable ---
-app = FastAPI()
+app = FastAPI(title="AI Club DAIICT API", version="1.0.0")
 
 # --- CORS SETUP ---
 app.add_middleware(
@@ -29,14 +31,35 @@ app.add_middleware(
 )
 
 # --- DATABASE SETUP ---
-MONGO_URI = os.getenv("DATABASE_URL")
+MONGO_URI = os.getenv("MONGO_URI") or os.getenv("DATABASE_URL")
+if not MONGO_URI:
+    raise RuntimeError("MONGO_URI environment variable is not set")
+
+DB_NAME = os.getenv("DB_NAME", "neuralnode")
 db_client = AsyncIOMotorClient(MONGO_URI)
-db = db_client.test
+db = db_client[DB_NAME]
 events_collection = db.Events
 apps_collection = db.applications
 
 # --- GEMINI SETUP ---
-ai_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if not GOOGLE_API_KEY:
+    raise RuntimeError("GOOGLE_API_KEY environment variable is not set")
+ai_client = genai.Client(api_key=GOOGLE_API_KEY)
+
+# --- ADMIN AUTH ---
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")
+admin_key_header = APIKeyHeader(name="X-Admin-Key", auto_error=False)
+
+async def verify_admin(api_key: str = Depends(admin_key_header)):
+    if not ADMIN_API_KEY:
+        # No key configured — allow in development only
+        if os.getenv("ENVIRONMENT", "development") == "production":
+            raise HTTPException(status_code=503, detail="Admin not configured")
+        return True
+    if api_key != ADMIN_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid or missing admin API key")
+    return True
 
 # ---------------------------------------------------------------------------
 # STATIC KNOWLEDGE BASE — mirrors everything displayed on the website
@@ -201,12 +224,30 @@ A: Discord: https://discord.gg/yB3Huet5 | Instagram: @aiclub_daiict | GitHub: ai
 class ChatRequest(BaseModel):
     message: str
 
+    @field_validator('message')
+    @classmethod
+    def message_must_not_be_empty(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError('Message cannot be empty')
+        if len(v) > 1000:
+            raise ValueError('Message too long (max 1000 characters)')
+        return v
+
 class EventData(BaseModel):
     event_name: str
     event_date: str
     summary: str
     winners: str
     key_highlights: str
+
+    @field_validator('event_name')
+    @classmethod
+    def name_must_not_be_empty(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError('Event name cannot be empty')
+        return v
 
 class ApplicationData(BaseModel):
     name: str
@@ -215,6 +256,14 @@ class ApplicationData(BaseModel):
     interest: str
     reason: str
 
+    @field_validator('name', 'branch', 'interest')
+    @classmethod
+    def fields_must_not_be_empty(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError('Field cannot be empty')
+        return v
+
 # --- ROUTES ---
 
 # 1. Preflight CORS Handler for Vercel
@@ -222,38 +271,37 @@ class ApplicationData(BaseModel):
 async def options_admin_events(request: Request):
     return Response(status_code=200)
 
-# 2. Add New Event
+@app.options("/api/admin/applications")
+async def options_admin_applications(request: Request):
+    return Response(status_code=200)
+
+# 2. Add New Event (protected)
 @app.post("/api/admin/events")
-async def add_event(event: EventData):
+async def add_event(event: EventData, _: bool = Depends(verify_admin)):
     try:
-        new_event = event.dict()
+        new_event = event.model_dump()
         new_event["created_at"] = datetime.utcnow()
         result = await events_collection.insert_one(new_event)
         return {"status": "Success", "id": str(result.inserted_id)}
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"Add event error: {e}")
         raise HTTPException(status_code=500, detail="Failed to save event")
 
-# 3. Get Applications
+# 3. Get Applications (protected)
 @app.get("/api/admin/applications")
-async def get_applications():
+async def get_applications(_: bool = Depends(verify_admin)):
     try:
-        apps = await apps_collection.find().sort("created_at", -1).to_list(100)
+        apps = await apps_collection.find().sort("created_at", -1).to_list(500)
         for app_item in apps:
             app_item["_id"] = str(app_item["_id"])
         return apps
+    except HTTPException:
+        raise
     except Exception as e:
+        print(f"Get applications error: {e}")
         raise HTTPException(status_code=500, detail="Could not fetch applications")
-
-# 4. Submit Application
-@app.post("/api/apply")
-async def apply_to_club(application: ApplicationData):
-    try:
-        app_dict = application.dict()
-        app_dict["created_at"] = datetime.utcnow()
-        result = await apps_collection.insert_one(app_dict)
-        return {"message": "Application submitted successfully!", "id": str(result.inserted_id)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Submission failed")
 
 # 5. AI Chatbot — now powered by full club knowledge base
 @app.post("/api/club-chat")
@@ -291,15 +339,17 @@ RULES:
 """
 
         response = ai_client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-1.5-flash',
             contents=f"{system_prompt}\n\nUser question: {request.message}"
         )
 
         return {"reply": response.text}
 
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"CRITICAL CHAT ERROR: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Backend Crash: {str(e)}")
+        print(f"CRITICAL CHAT ERROR: {type(e).__name__}: {str(e)}")
+        raise HTTPException(status_code=500, detail="AI assistant is temporarily unavailable. Please try again in a moment.")
 
 # Used only for local testing
 if __name__ == "__main__":

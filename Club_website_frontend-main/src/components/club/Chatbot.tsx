@@ -30,6 +30,8 @@ export default function Chatbot() {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const API_BASE = (import.meta.env.VITE_API_URL || 'https://club-website-7aay.vercel.app').replace(/\/$/, '');
+
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
     setShowSuggestions(false);
@@ -37,7 +39,7 @@ export default function Chatbot() {
     setInputValue('');
     setIsLoading(true);
     try {
-      const res = await fetch('https://club-website-7aay.vercel.app/api/club-chat', {
+      const res = await fetch(`${API_BASE}/api/club-chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text }),
