@@ -28,9 +28,14 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
+// Normalize protocol prefix for pg client (strip +asyncpg)
+const normalizedURL = DATABASE_URL
+  .replace('postgresql+asyncpg://', 'postgresql://')
+  .replace('postgres+asyncpg://', 'postgresql://');
+
 const pool = new Pool({
-  connectionString: DATABASE_URL,
-  ssl: DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false },
+  connectionString: normalizedURL,
+  ssl: normalizedURL.includes('localhost') ? false : { rejectUnauthorized: false },
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,

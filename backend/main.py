@@ -55,6 +55,16 @@ async def lifespan(application: FastAPI):
                 reason     TEXT          DEFAULT '',
                 applied_at TIMESTAMPTZ   DEFAULT NOW()
             );
+
+            CREATE TABLE IF NOT EXISTS kaggle_registrations (
+                id            SERIAL PRIMARY KEY,
+                google_id     VARCHAR(255)  NOT NULL UNIQUE,
+                name          VARCHAR(255)  NOT NULL,
+                email         VARCHAR(255)  NOT NULL UNIQUE,
+                picture       TEXT          DEFAULT '',
+                kaggle_id     VARCHAR(255)  NOT NULL UNIQUE,
+                registered_at TIMESTAMPTZ   DEFAULT NOW()
+            );
         """)
     print("✅ PostgreSQL pool ready, tables verified")
     yield
@@ -311,12 +321,29 @@ class ApplicationData(BaseModel):
 # ─── Routes ─────────────────────────────────────────────────────────────────────
 
 # Preflight CORS handlers for Vercel
+# Preflight CORS handlers for Vercel
 @app.options("/api/admin/events")
 async def options_admin_events(request: Request):
     return Response(status_code=200)
 
 @app.options("/api/admin/applications")
 async def options_admin_applications(request: Request):
+    return Response(status_code=200)
+
+@app.options("/api/admin/kaggle-registrations")
+async def options_admin_kaggle_registrations(request: Request):
+    return Response(status_code=200)
+
+@app.options("/api/admin/events/{event_id}")
+async def options_admin_events_id(request: Request, event_id: str):
+    return Response(status_code=200)
+
+@app.options("/api/admin/applications/{app_id}")
+async def options_admin_applications_id(request: Request, app_id: str):
+    return Response(status_code=200)
+
+@app.options("/api/admin/kaggle-registrations/{reg_id}")
+async def options_admin_kaggle_registrations_id(request: Request, reg_id: str):
     return Response(status_code=200)
 
 
@@ -339,6 +366,38 @@ async def add_event(event: EventData, _: bool = Depends(verify_admin)):
         raise HTTPException(status_code=500, detail="Failed to save event")
 
 
+# GET /api/admin/events — list all events (protected)
+@app.get("/api/admin/events")
+async def get_events(_: bool = Depends(verify_admin)):
+    try:
+        rows = await db_pool.fetch(
+            "SELECT * FROM events ORDER BY created_at DESC LIMIT 500"
+        )
+        return [dict(r) for r in rows]
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Get events error: {e}")
+        raise HTTPException(status_code=500, detail="Could not fetch events")
+
+
+# DELETE /api/admin/events/{event_id} — delete an event (protected)
+@app.delete("/api/admin/events/{event_id}")
+async def delete_event(event_id: int, _: bool = Depends(verify_admin)):
+    try:
+        result = await db_pool.execute(
+            "DELETE FROM events WHERE id = $1", event_id
+        )
+        if result == "DELETE 0":
+            raise HTTPException(status_code=404, detail="Event not found")
+        return {"status": "Success", "message": f"Event {event_id} deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Delete event error: {e}")
+        raise HTTPException(status_code=500, detail="Could not delete event")
+
+
 # GET /api/admin/applications — list all membership applications (protected)
 @app.get("/api/admin/applications")
 async def get_applications(_: bool = Depends(verify_admin)):
@@ -354,27 +413,78 @@ async def get_applications(_: bool = Depends(verify_admin)):
         raise HTTPException(status_code=500, detail="Could not fetch applications")
 
 
+# DELETE /api/admin/applications/{app_id} — delete an application (protected)
+@app.delete("/api/admin/applications/{app_id}")
+async def delete_application(app_id: int, _: bool = Depends(verify_admin)):
+    try:
+        result = await db_pool.execute(
+            "DELETE FROM applications WHERE id = $1", app_id
+        )
+        if result == "DELETE 0":
+            raise HTTPException(status_code=404, detail="Application not found")
+        return {"status": "Success", "message": f"Application {app_id} deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Delete application error: {e}")
+        raise HTTPException(status_code=500, detail="Could not delete application")
+
+
+# GET /api/admin/kaggle-registrations — list all registered participants (protected)
+@app.get("/api/admin/kaggle-registrations")
+async def get_kaggle_registrations(_: bool = Depends(verify_admin)):
+    try:
+        rows = await db_pool.fetch(
+            "SELECT * FROM kaggle_registrations ORDER BY registered_at DESC LIMIT 500"
+        )
+        return [dict(r) for r in rows]
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Get kaggle-registrations error: {e}")
+        raise HTTPException(status_code=500, detail="Could not fetch kaggle registrations")
+
+
+# DELETE /api/admin/kaggle-registrations/{reg_id} — delete a registration (protected)
+@app.delete("/api/admin/kaggle-registrations/{reg_id}")
+async def delete_kaggle_registration(reg_id: int, _: bool = Depends(verify_admin)):
+    try:
+        result = await db_pool.execute(
+            "DELETE FROM kaggle_registrations WHERE id = $1", reg_id
+        )
+        if result == "DELETE 0":
+            raise HTTPException(status_code=404, detail="Registration not found")
+        return {"status": "Success", "message": f"Registration {reg_id} deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Delete registration error: {e}")
+        raise HTTPException(status_code=500, detail="Could not delete registration")
+
+
 # POST /api/club-chat — AI chatbot powered by the full knowledge base
 @app.post("/api/club-chat")
 async def club_chat(request: ChatRequest):
     try:
-        # Pull the most recent event from the DB to supplement static knowledge
+        # Pull recent events from the DB to supplement static knowledge
         dynamic_context = ""
         try:
-            row = await db_pool.fetchrow(
-                "SELECT * FROM events ORDER BY created_at DESC LIMIT 1"
+            rows = await db_pool.fetch(
+                "SELECT * FROM events ORDER BY created_at DESC LIMIT 10"
             )
-            if row:
-                dynamic_context = f"""
-LATEST EVENT FROM DATABASE:
-- Name: {row['event_name']}
-- Date: {row['event_date']}
-- Summary: {row['summary']}
-- Highlights: {row['key_highlights']}
-- Winners: {row['winners']}
+            if rows:
+                events_str = ""
+                for idx, r in enumerate(rows, 1):
+                    events_str += f"""
+{idx}. Event Name: {r['event_name']}
+   Date: {r['event_date']}
+   Summary: {r['summary']}
+   Highlights: {r['key_highlights']}
+   Winners: {r['winners']}
 """
-        except Exception:
-            pass  # Don't fail the whole chat if DB query fails
+                dynamic_context = f"\nRECENT DYNAMIC EVENTS FROM DATABASE:\n{events_str}\n"
+        except Exception as e:
+            print(f"Error fetching dynamic events context: {e}")
 
         system_prompt = f"""You are NeuralNode, the official AI assistant of AI Club DAIICT — a friendly, knowledgeable, and enthusiastic chatbot embedded on the club's website.
 

@@ -264,7 +264,7 @@ export default function KaggleRegister() {
                 )}
               </AnimatePresence>
 
-              <p className="kr-note">🔒 Stored securely in MongoDB. No spam, ever.</p>
+              <p className="kr-note">🔒 Stored securely. No spam, ever.</p>
             </motion.form>
           )}
 
