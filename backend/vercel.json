@@ -17,6 +17,7 @@
     { "src": "/api/kaggle-registrations", "dest": "server.js" },
     { "src": "/api/apply",                "dest": "server.js" },
     { "src": "/api/health",               "dest": "server.js" },
+    { "src": "/api/(.*)",                 "dest": "main.py" },
     { "src": "/(.*)",                     "dest": "server.js" }
   ]
 }

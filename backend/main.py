@@ -1,58 +1,146 @@
 import os
+import logging
+import asyncio
+import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, EmailStr
-from motor.motor_asyncio import AsyncIOMotorClient
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 from google import genai
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timezone
+
+# SQLAlchemy AsyncIO imports
+from sqlalchemy import Column, Integer, String, Text, DateTime, select, desc
+
+# ── Shared DB (engine + session factory + Base) ────────────────────────────
+from db import Base, async_session, engine  # noqa: E402
+
+# ── Auth module ────────────────────────────────────────────────────────────
+from auth.config import settings as auth_settings
+from auth.routes import router as auth_router
+
+# ── Events module ──────────────────────────────────────────────────────────
+from events.models import ClubEvent   # registers the table with Base
+from events.routes import router as events_router
+
+# ── Forms module (Dynamic Event Form Builder) ──────────────────────────────
+from forms.models import FormTemplate, FormField   # registers tables with Base
+from forms.routes import router as forms_router
+
+# ── Registrations module ───────────────────────────────────────────────────
+from registrations.models import (
+    EventRegistration, RegistrationResponse,
+    Team, TeamMember, UploadedFile,
+)
+from registrations.routes import router as registrations_router
+
+# ── Admin Dashboard module ─────────────────────────────────────────────────
+from admin.routes import router as admin_router
+
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO)
 
-# --- CRITICAL: Vercel specifically looks for this 'app' variable ---
-app = FastAPI()
+app = FastAPI(title="AI Club DAU API", version="1.0.0")
 
 # --- CORS SETUP ---
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
+if allowed_origins_env:
+    origins = [orig.strip() for orig in allowed_origins_env.split(",") if orig.strip()]
+else:
+    origins = [
         "http://localhost:5173",
         "http://localhost:8080",
         "http://localhost:3000",
         "https://aiclubdau.vercel.app",
         "https://club-website-7aay.vercel.app",
-        "https://club-website-eta.vercel.app",
-    ],
+        "https://club-website-eta.vercel.app"
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    max_age=600,
 )
 
-# --- DATABASE SETUP ---
-MONGO_URI = os.getenv("DATABASE_URL")
-db_client = AsyncIOMotorClient(MONGO_URI)
-db = db_client.test
-events_collection = db.Events
-apps_collection = db.applications
+# --- SERVE UPLOADS STATICALLY ---
+uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+os.makedirs(uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
-# --- GEMINI SETUP ---
+
+# --- DATABASE MODELS ---
+class User(Base):
+    """
+    Users table — stores everyone who has authenticated via Google OAuth.
+    """
+    __tablename__ = 'users'
+    __table_args__ = {"extend_existing": True}
+    id            = Column(Integer, primary_key=True, index=True)
+    google_id     = Column(String(255), unique=True, nullable=False, index=True)
+    name          = Column(String(255), nullable=False)
+    email         = Column(String(255), unique=True, nullable=False, index=True)
+    profile_image = Column("picture", String(500), nullable=True)
+    last_login    = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at    = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+# ── Register routers ───────────────────────────────────────────────────────
+app.include_router(auth_router)
+app.include_router(events_router)
+app.include_router(forms_router)
+app.include_router(registrations_router)
+app.include_router(admin_router)
+
+
+# ── Startup ────────────────────────────────────────────────────────────────
+async def keep_alive_task():
+    """
+    Pings the API itself every 14 minutes and 50 seconds to prevent
+    Render free tier from spinning down the instance.
+    """
+    url = "https://ai-club-website-e0u3.onrender.com/docs"
+    while True:
+        await asyncio.sleep(890)  # 14 minutes and 50 seconds
+        try:
+            async with httpx.AsyncClient() as client:
+                await client.get(url)
+                logging.info(f"Keep-alive ping sent to {url}")
+        except Exception as e:
+            logging.error(f"Keep-alive ping failed: {e}")
+
+@app.on_event("startup")
+async def startup():
+    # Validate auth configuration early so we fail fast.
+    auth_settings.validate()
+    # Auto-create all tables (idempotent).
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        
+    # Start the keep-alive background task
+    asyncio.create_task(keep_alive_task())
+
+# ── Gemini AI setup ────────────────────────────────────────────────────────
 ai_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # ---------------------------------------------------------------------------
 # STATIC KNOWLEDGE BASE — mirrors everything displayed on the website
 # ---------------------------------------------------------------------------
 CLUB_KNOWLEDGE = """
-=== AI CLUB DAIICT — COMPLETE KNOWLEDGE BASE ===
+=== AI CLUB DAU — COMPLETE KNOWLEDGE BASE ===
 
 ABOUT THE CLUB:
-AI Club DAIICT is the Artificial Intelligence and Machine Learning club at DA-IICT (Dhirubhai Ambani Institute of Information and Communication Technology), Gandhinagar, Gujarat, India.
+AI Club DAU is the Artificial Intelligence and Machine Learning club at DAU (Dhirubhai Ambani Institute of Information and Communication Technology), Gandhinagar, Gujarat, India.
 The club runs events, workshops, hackathons, and collaborative projects to help students explore AI/ML.
 
 SOCIAL LINKS:
 - Discord: https://discord.gg/yB3Huet5
-- Instagram: https://www.instagram.com/aiclub_daiict/
-- GitHub: https://github.com/ai-club-daiict
-- LinkedIn: https://www.linkedin.com/company/ai-club-daiict/
+- Instagram: https://www.instagram.com/aiclub_dau/
+- GitHub: https://github.com/ai-club-dau
+- LinkedIn: https://www.linkedin.com/company/ai-club-dau/
 
 HOW TO JOIN:
 Fill out the Join Form on the website with your name, email, branch, interest area, and reason for joining.
@@ -178,11 +266,11 @@ The club provides curated learning resources for AI/ML topics including Python, 
 
 FREQUENTLY ASKED QUESTIONS:
 
-Q: How do I join AI Club DAIICT?
+Q: How do I join AI Club DAU?
 A: Fill out the Join Form on the website at the bottom of the page. Provide your name, email, branch, area of interest, and reason for joining.
 
 Q: Who can join?
-A: Any DA-IICT student interested in AI/ML can apply. All branches are welcome.
+A: Any DAU student interested in AI/ML can apply. All branches are welcome.
 
 Q: What events does the club run?
 A: The club runs hackathons, workshops, deep-dive talks, and competitions. Past events include AI Triathlon, EDA Sessions, Linear Regression workshops, Intro to Python, Wearable AI, and more.
@@ -194,93 +282,42 @@ Q: Who are the core members?
 A: Aaditya Sarda is the Core Member. Manal Patel is an Extended Core Member.
 
 Q: Where can I find the club on social media?
-A: Discord: https://discord.gg/yB3Huet5 | Instagram: @aiclub_daiict | GitHub: ai-club-daiict | LinkedIn: AI Club DAIICT
+A: Discord: https://discord.gg/yB3Huet5 | Instagram: @aiclub_dau | GitHub: ai-club-dau | LinkedIn: AI Club DAU
 """
 
 # --- DATA MODELS ---
 class ChatRequest(BaseModel):
     message: str
 
-class EventData(BaseModel):
-    event_name: str
-    event_date: str
-    summary: str
-    winners: str
-    key_highlights: str
 
-class ApplicationData(BaseModel):
-    name: str
-    email: EmailStr
-    branch: str
-    interest: str
-    reason: str
-
-# --- ROUTES ---
-
-# 1. Preflight CORS Handler for Vercel
-@app.options("/api/admin/events")
-async def options_admin_events(request: Request):
-    return Response(status_code=200)
-
-# 2. Add New Event
-@app.post("/api/admin/events")
-async def add_event(event: EventData):
-    try:
-        new_event = event.dict()
-        new_event["created_at"] = datetime.utcnow()
-        result = await events_collection.insert_one(new_event)
-        return {"status": "Success", "id": str(result.inserted_id)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to save event")
-
-# 3. Get Applications
-@app.get("/api/admin/applications")
-async def get_applications():
-    try:
-        apps = await apps_collection.find().sort("created_at", -1).to_list(100)
-        for app_item in apps:
-            app_item["_id"] = str(app_item["_id"])
-        return apps
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Could not fetch applications")
-
-# 4. Submit Application
-@app.post("/api/apply")
-async def apply_to_club(application: ApplicationData):
-    try:
-        app_dict = application.dict()
-        app_dict["created_at"] = datetime.utcnow()
-        result = await apps_collection.insert_one(app_dict)
-        return {"message": "Application submitted successfully!", "id": str(result.inserted_id)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Submission failed")
-
-# 5. AI Chatbot — now powered by full club knowledge base
+# ── AI Chatbot ─────────────────────────────────────────────────────────────
 @app.post("/api/club-chat")
 async def club_chat(request: ChatRequest):
     try:
-        # Also fetch the latest dynamic event from DB to supplement static knowledge
-        latest_event = await events_collection.find().sort("event_date", -1).to_list(1)
         dynamic_context = ""
-        if latest_event:
-            ev = latest_event[0]
-            dynamic_context = f"""
+        async with async_session() as session:
+            result = await session.execute(
+                select(ClubEvent).order_by(desc(ClubEvent.event_date)).limit(1)
+            )
+            latest_event = result.scalars().first()
+            if latest_event:
+                dynamic_context = f"""
 LATEST EVENT FROM DATABASE:
-- Name: {ev.get('event_name', 'Unknown')}
-- Date: {ev.get('event_date', 'Unknown')}
-- Summary: {ev.get('summary', 'N/A')}
-- Highlights: {ev.get('key_highlights', 'N/A')}
-- Winners: {ev.get('winners', 'N/A')}
+- Name: {latest_event.title}
+- Date: {latest_event.event_date.isoformat() if hasattr(latest_event.event_date, 'isoformat') else latest_event.event_date}
+- Description: {latest_event.description}
+- Category: {latest_event.category}
+- Venue: {latest_event.venue}
 """
 
-        system_prompt = f"""You are NeuralNode, the official AI assistant of AI Club DAIICT — a friendly, knowledgeable, and enthusiastic chatbot embedded on the club's website.
+        system_prompt = f"""You are NeuralNode, the official AI assistant of AI Club DAU — a friendly, knowledgeable, and enthusiastic chatbot embedded on the club's website.
 
-Your job is to help visitors learn about the club — its members, projects, events, blogs, how to join, and anything else related to AI Club DAIICT.
+Your job is to help visitors learn about the club — its members, projects, events, blogs, how to join, and anything else related to AI Club DAU.
 
 RULES:
 - Be warm, concise, and helpful. Use a conversational but professional tone.
-- Only answer questions related to AI Club DAIICT, its members, projects, events, AI/ML topics, or the website content.
-- If asked something completely unrelated (e.g., unrelated coding questions, personal advice), politely redirect: "I'm best at answering questions about AI Club DAIICT! Ask me about our members, projects, events, or how to join."
+- Only answer questions related to AI Club DAU, its members, projects, events, AI/ML topics, or the website content.
+- If asked something completely unrelated (e.g., unrelated coding questions, personal advice), politely redirect: "I'm best at answering questions about AI Club DAU! Ask me about our members, projects, events, or how to join."
 - When listing members, projects, or events, be specific and accurate — use ONLY the data below.
 - If you don't know something, say so honestly rather than making up information.
 - Format responses clearly. Use short paragraphs or bullet points where helpful.
@@ -301,7 +338,8 @@ RULES:
         print(f"CRITICAL CHAT ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Backend Crash: {str(e)}")
 
+
 # Used only for local testing
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -38,19 +38,19 @@ const socials = [
   },
   {
     Icon: InstagramIcon,
-    href: 'https://www.instagram.com/aiclub_daiict/?hl=en',
+    href: 'https://www.instagram.com/aiclub_dau/?hl=en',
     label: 'Instagram',
     color: 'hover:text-[#E1306C] hover:border-[#E1306C]/40',
   },
   {
     Icon: GitHubIcon,
-    href: 'https://github.com/ai-club-daiict',
+    href: 'https://github.com/ai-club-dau',
     label: 'GitHub',
     color: 'hover:text-foreground hover:border-foreground/40',
   },
   {
     Icon: LinkedInIcon,
-    href: 'https://www.linkedin.com/company/ai-club-daiict/posts/?feedView=all',
+    href: 'https://www.linkedin.com/company/ai-club-dau/posts/?feedView=all',
     label: 'LinkedIn',
     color: 'hover:text-[#0A66C2] hover:border-[#0A66C2]/40',
   },
@@ -68,9 +68,9 @@ export default function Footer() {
       <div className="max-w-[1200px] mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
         {/* Logo + name */}
         <a href="#" className="flex items-center gap-2.5">
-          <img src={aiClubLogo} alt="AI Club DAIICT Logo" className="w-7 h-7 rounded-sm object-contain" />
+          <img src={aiClubLogo} alt="AI Club DAU Logo" className="w-7 h-7 rounded-sm object-contain" />
           <span className="font-display font-extrabold text-lg">
-            AI Club <span className="text-primary">DAIICT</span>
+            AI Club <span className="text-primary">DAU</span>
           </span>
         </a>
 
@@ -97,7 +97,7 @@ export default function Footer() {
           ))}
         </div>
 
-        <p className="text-xs text-muted-foreground">© 2026 AI Club DAIICT. All rights reserved.</p>
+        <p className="text-xs text-muted-foreground">© 2026 AI Club DAU. All rights reserved.</p>
       </div>
     </motion.footer>
   );

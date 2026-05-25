@@ -8,3 +8,6 @@ venv/
 
 # Ignore node modules
 node_modules/
+
+# Ignore uploaded files (form submissions)
+uploads/

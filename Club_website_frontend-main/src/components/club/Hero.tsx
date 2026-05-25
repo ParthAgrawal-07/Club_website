@@ -70,12 +70,12 @@ export default function Hero() {
         <motion.div variants={itemVariants} className="flex items-center gap-4 mb-6">
           <img
             src={aiClubLogo}
-            alt="AI Club DAIICT Logo"
+            alt="AI Club DAU Logo"
             className="w-16 h-16 rounded-xl object-contain"
           />
           <div>
-            <p className="font-mono text-xs text-primary tracking-widest uppercase mb-0.5">DA-IICT · Gandhinagar</p>
-            <p className="font-display font-extrabold text-2xl text-foreground tracking-tight">AI Club DAIICT</p>
+            <p className="font-mono text-xs text-primary tracking-widest uppercase mb-0.5">DAU · Gandhinagar</p>
+            <p className="font-display font-extrabold text-2xl text-foreground tracking-tight">AI Club DAU</p>
           </div>
         </motion.div>
 
@@ -110,7 +110,7 @@ export default function Hero() {
           variants={itemVariants}
           className="max-w-xl text-muted-foreground text-base md:text-lg leading-relaxed mb-10"
         >
-          AI Club DAIICT is DA-IICT's premier Artificial Intelligence club — where students research, build, and ship real AI projects.
+          AI Club DAU is DAU's premier Artificial Intelligence club — where students research, build, and ship real AI projects.
         </motion.p>
 
         {/* Buttons */}
