@@ -104,18 +104,73 @@ export const projects: Project[] = [
     githubLink: "https://github.com/jash0803/financial-asset-recommendation",
   },
   {
-    id: 7,
-    title: "Edge Style GAN",
-    author: "Jash Shah",
-    authorId: 2,
+    id: 8,
+    title: "NaFO RL Environment",
+    author: "Vedant Shah",
+    authorId: 10,
     description:
-      "An edge-optimized implementation of MobileStyleGAN in PyTorch, enabling high-quality style-based image generation on resource-constrained devices with significantly reduced model size and inference cost.",
-    tags: [
-      "Deep Learning",
-      "Computer Vision",
-      "GAN",
-      "Python",
-    ],
-    githubLink: "https://github.com/jash0803/edge-style-gan",
+      "A multi-agent reinforcement learning environment built on OpenEnv's framework that simulates an economy, optimizing profits for a shopkeeper by accounting for dynamic market factors.",
+    tags: ["Machine Learning", "Reinforcement Learning", "Multi-Agent", "Python"],
+    githubLink: "https://github.com/Vedant-1016",
+  },
+  {
+    id: 9,
+    title: "ConcourMeet",
+    author: "Vedant Shah",
+    authorId: 10,
+    description:
+      "A backend implementation of a video-conferencing platform inspired by Google Meet, built with a system-programming-oriented approach focusing on concurrency and backend architecture.",
+    tags: ["Full Stack", "Backend", "Systems", "Python"],
+    githubLink: "https://github.com/Vedant-1016",
+  },
+  {
+    id: 10,
+    title: "AI-Powered Personal Command Centre",
+    author: "Jugal Nirav Shah",
+    authorId: 12,
+    description:
+      "A highly customized, fully responsive personal dashboard centralizing academic, technical, and lifestyle tracking. Built with React and a cyberpunk aesthetic as a single pane of glass for developer workflows.",
+    tags: ["Full Stack", "Machine Learning", "Data Science", "Python"],
+    githubLink: "https://github.com/jugalshahh",
+  },
+  {
+    id: 11,
+    title: "AI Email Classifier",
+    author: "Jugal Nirav Shah",
+    authorId: 12,
+    description:
+      "A real-world OpenEnv environment simulating email triage — classifying incoming emails by spam status, category, and priority level, benchmarking AI agent capabilities on a practical knowledge-worker task.",
+    tags: ["Machine Learning", "NLP", "Multi-Agent", "Python"],
+    githubLink: "https://github.com/jugalshahh",
+  },
+  {
+    id: 12,
+    title: "CareerPilot-AI",
+    author: "Parth Agrawal",
+    authorId: 11,
+    description:
+      "A fully developed AI-powered career guidance platform that uses conversational AI to analyze student interests and deliver personalized career recommendations with financial and professional insights.",
+    tags: ["Machine Learning", "Full Stack", "Data Science", "Python"],
+    githubLink: "https://github.com/ParthAgrawal-07",
+  },
+  {
+    id: 13,
+    title: "TalentLens",
+    author: "Anmol Ghogare",
+    authorId: 14,
+    description:
+      "An AI-powered talent assessment tool that evaluates candidate skills and potential using machine learning models, helping organizations make data-driven hiring decisions.",
+    tags: ["Machine Learning", "Data Science", "Python"],
+    githubLink: "https://github.com/anmolghogare",
+  },
+  {
+    id: 14,
+    title: "Real Estate Price Predictor",
+    author: "Anmol Ghogare",
+    authorId: 14,
+    description:
+      "A machine learning model that predicts real estate property prices based on location, amenities, and market factors, enabling smarter investment and buying decisions.",
+    tags: ["Machine Learning", "Regression", "Data Science", "Python"],
+    githubLink: "https://github.com/anmolghogare",
   },
 ];

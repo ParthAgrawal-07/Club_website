@@ -1,7 +1,7 @@
 // src/data/members.ts
 // AI Club Members Data — generated from club form responses
 
-export type MemberRole = 'Core Member' | 'Extended Core Member' | 'Member';
+export type MemberRole = 'Convenor' | 'Core Member' | 'Extended Core Member' | 'Member';
 
 export interface Member {
   id: number;
@@ -63,7 +63,7 @@ export const members: Member[] = [
   {
     id: 4,
     name: "Manal Patel",
-    role: "Extended Core Member",
+    role: "Core Member",
     photo: driveImg("1SIbjNc7hzjt7sYUAUcZNALAYCR3jG1Vq"),
     description:
       "Keen learner actively involved in club activities spanning data analysis, Python, and emerging AI applications.",
@@ -137,5 +137,60 @@ export const members: Member[] = [
     github: "https://github.com/sahil-vasani",
     linkedin: "https://www.linkedin.com/in/sahil-vasani/",
     events: ["Linear Regression", "Wearable AI"],
+  },
+  {
+    id: 10,
+    name: "Vedant Shah",
+    role: "Convenor",
+    photo: driveImg("1w-YzI438YZQ4TxCk0xP4g_VswuyaiW3i"),
+    description:
+      "Convenor of the AI Club DAIICT. Builds multi-agent RL environments, edge AI systems, and blockchain backends — driven by a passion for research and real-world AI impact.",
+    github: "https://github.com/Vedant-1016",
+    linkedin: "https://www.linkedin.com/in/vedant-shah-07a87331a/",
+    events: ["Worldquant", "Integration Bee", "EDA Session", "Intro To Python", "Linear Regression", "Wearable AI"],
+  },
+  {
+    id: 11,
+    name: "Parth Agrawal",
+    role: "Core Member",
+    photo: driveImg("1cpqcCEhL-421d93Pms15ZEcpzAYAe6Ns"),
+    description:
+      "Core member of the AI Club with a strong interest in AI-powered career guidance and data-driven problem solving. Built CareerPilot-AI, a conversational platform for personalized career recommendations.",
+    github: "https://github.com/ParthAgrawal-07",
+    linkedin: "https://www.linkedin.com/in/parth-agrawal-368869325/",
+    events: ["Worldquant", "Integration Bee", "EDA Session", "Intro To Python", "Linear Regression", "Wearable AI"],
+  },
+  {
+    id: 12,
+    name: "Jugal Nirav Shah",
+    role: "Extended Core Member",
+    photo: driveImg("1eWzxCETb_20BuzqBfLODuPkOb44dtZGz"),
+    description:
+      "Extended core member of the AI Club. Builds AI-powered dashboards and intelligent email triage systems, with a cyberpunk-inspired design sensibility and a love for vibe coding.",
+    github: "https://github.com/jugalshahh",
+    linkedin: "https://www.linkedin.com/in/jugal-shah-a493b3368/",
+    events: ["Worldquant", "Integration Bee"],
+  },
+  {
+    id: 13,
+    name: "Bhagyashree Khemwani",
+    role: "Core Member",
+    photo: driveImg("1k-3MwbfpE2I_1yPo76ikT5Bd5F7rQA3L"),
+    description:
+      "Core member of the AI Club, actively participating in events and building foundational skills in Python, data science, and emerging AI applications.",
+    github: "https://github.com/bhagy-shr",
+    linkedin: "https://www.linkedin.com/in/bhagyashree-khemwani",
+    events: ["Worldquant", "Intro To Python"],
+  },
+  {
+    id: 14,
+    name: "Anmol Ghogare",
+    role: "Core Member",
+    photo: driveImg("1QWs1UunTZomhZfPxHPHMhuoF4OVQPvGJ"),
+    description:
+      "Passionate about AI/ML and competitive programming. Has built real-world projects including a talent assessment tool, real estate price predictor, and eco-drive analyzer. Experienced in hackathons and AI-driven development.",
+    github: "https://github.com/anmolghogare",
+    linkedin: "https://www.linkedin.com/in/anmol-ghogare-407244381",
+    events: ["Worldquant", "Integration Bee", "EDA Session", "Intro To Python", "Linear Regression", "Wearable AI"],
   },
 ];

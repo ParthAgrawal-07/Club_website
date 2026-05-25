@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 // Role badge colours
 const roleMeta: Record<MemberRole, { label: string; classes: string }> = {
+  'Convenor':             { label: 'Convenor',             classes: 'bg-amber-500/15 text-amber-400 border border-amber-500/30' },
   'Core Member':          { label: 'Core Member',          classes: 'bg-primary/15 text-primary border border-primary/30' },
   'Extended Core Member': { label: 'Extended Core Member', classes: 'bg-accent/15 text-accent border border-accent/30' },
   'Member':               { label: 'Member',               classes: 'bg-secondary text-muted-foreground border border-border' },
