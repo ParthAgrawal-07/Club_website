@@ -1,10 +1,7 @@
 const express = require('express');
-const mongoose = require('mongoose');
+const { Pool } = require('pg');
 const cors = require('cors');
 require('dotenv').config();
-
-const Application = require('./models/Application');
-const KaggleRegistration = require('./models/KaggleRegistration');
 
 const app = express();
 
@@ -24,17 +21,58 @@ app.use(cors({
 
 app.use(express.json({ limit: '1mb' }));
 
-// ── DB ──
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log('✅ Connected to MongoDB'))
-  .catch((err) => console.error('❌ MongoDB error:', err));
+// ── POSTGRES POOL ──
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error('❌ DATABASE_URL environment variable is not set');
+  process.exit(1);
+}
+
+const pool = new Pool({
+  connectionString: DATABASE_URL,
+  ssl: DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false },
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+});
+
+// ── CREATE TABLES ON STARTUP ──
+async function initDB() {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS applications (
+        id          SERIAL PRIMARY KEY,
+        name        VARCHAR(255)        NOT NULL,
+        email       VARCHAR(255)        NOT NULL UNIQUE,
+        branch      VARCHAR(255)        NOT NULL,
+        interest    VARCHAR(255)        NOT NULL,
+        reason      TEXT                DEFAULT '',
+        applied_at  TIMESTAMPTZ         DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS kaggle_registrations (
+        id            SERIAL PRIMARY KEY,
+        google_id     VARCHAR(255)  NOT NULL UNIQUE,
+        name          VARCHAR(255)  NOT NULL,
+        email         VARCHAR(255)  NOT NULL UNIQUE,
+        picture       TEXT          DEFAULT '',
+        kaggle_id     VARCHAR(255)  NOT NULL UNIQUE,
+        registered_at TIMESTAMPTZ   DEFAULT NOW()
+      );
+    `);
+    console.log('✅ PostgreSQL tables ready');
+  } finally {
+    client.release();
+  }
+}
+
+initDB().catch((err) => console.error('❌ DB init error:', err));
 
 // ── ADMIN AUTH MIDDLEWARE ──
 function requireAdmin(req, res, next) {
   const adminKey = process.env.ADMIN_API_KEY;
   if (!adminKey) {
-    // No key set — open only in development
     if (process.env.NODE_ENV === 'production') {
       return res.status(503).json({ error: 'Admin not configured' });
     }
@@ -57,16 +95,39 @@ async function getGoogleUserInfo(accessToken) {
 }
 
 // ── ROUTES ──
-app.get('/api/health', (_req, res) => res.json({ status: 'ok', db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' }));
 
+// Health check
+app.get('/api/health', async (_req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok', db: 'connected', engine: 'postgresql' });
+  } catch {
+    res.status(503).json({ status: 'error', db: 'disconnected' });
+  }
+});
+
+// POST /api/apply — submit club membership application
 app.post('/api/apply', async (req, res) => {
   try {
     const { name, email, branch, interest, reason } = req.body;
-    await new Application({ name, email, branch, interest, reason }).save();
+
+    if (!name?.trim() || !email?.trim() || !branch?.trim() || !interest?.trim()) {
+      return res.status(400).json({ error: 'name, email, branch and interest are required.' });
+    }
+
+    await pool.query(
+      `INSERT INTO applications (name, email, branch, interest, reason)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [name.trim(), email.trim().toLowerCase(), branch.trim(), interest.trim(), (reason || '').trim()]
+    );
+
     res.status(201).json({ message: 'Application submitted successfully!' });
   } catch (error) {
-    if (error.code === 11000) return res.status(400).json({ error: 'Email already used.' });
-    res.status(500).json({ error: 'Server error.' });
+    if (error.code === '23505') {   // unique_violation
+      return res.status(400).json({ error: 'This email has already been used to apply.' });
+    }
+    console.error('Apply error:', error);
+    res.status(500).json({ error: 'Server error. Please try again.' });
   }
 });
 
@@ -76,7 +137,7 @@ app.post('/api/kaggle-register', async (req, res) => {
   try {
     const { accessToken, googleId, name, email, picture, kaggleId } = req.body;
 
-    if (!accessToken || !googleId || !kaggleId) {
+    if (!accessToken || !googleId || !kaggleId?.trim()) {
       return res.status(400).json({ error: 'Missing required fields.' });
     }
 
@@ -86,40 +147,55 @@ app.post('/api/kaggle-register', async (req, res) => {
       return res.status(401).json({ error: 'Invalid Google session. Please sign in again.' });
     }
 
-    // One Google account → one registration
-    const byGoogle = await KaggleRegistration.findOne({ googleId: info.sub });
-    if (byGoogle) {
+    // Check one Google account → one registration
+    const byGoogle = await pool.query(
+      'SELECT id FROM kaggle_registrations WHERE google_id = $1',
+      [info.sub]
+    );
+    if (byGoogle.rows.length > 0) {
       return res.status(409).json({ error: `${info.email} has already registered for the contest.` });
     }
 
-    // One Kaggle ID → one registration
-    const byKaggle = await KaggleRegistration.findOne({ kaggleId: kaggleId.trim() });
-    if (byKaggle) {
+    // Check one Kaggle ID → one registration
+    const byKaggle = await pool.query(
+      'SELECT id FROM kaggle_registrations WHERE kaggle_id = $1',
+      [kaggleId.trim()]
+    );
+    if (byKaggle.rows.length > 0) {
       return res.status(409).json({ error: 'This Kaggle ID is already registered.' });
     }
 
-    await new KaggleRegistration({
-      googleId: info.sub,
-      name: info.name || name,
-      email: info.email || email,
-      picture: info.picture || picture || '',
-      kaggleId: kaggleId.trim(),
-    }).save();
+    await pool.query(
+      `INSERT INTO kaggle_registrations (google_id, name, email, picture, kaggle_id)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        info.sub,
+        (info.name || name || '').trim(),
+        (info.email || email || '').trim().toLowerCase(),
+        info.picture || picture || '',
+        kaggleId.trim(),
+      ]
+    );
 
     res.status(201).json({ message: `🎉 Successfully registered! Welcome, ${info.name}!` });
   } catch (error) {
     console.error('Kaggle registration error:', error);
-    if (error.code === 11000) return res.status(409).json({ error: 'Already registered.' });
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    if (error.code === '23505') {
+      return res.status(409).json({ error: 'Already registered.' });
+    }
+    res.status(500).json({ error: 'Server error. Please try again.' });
   }
 });
 
 // GET /api/kaggle-registrations — all entries (admin use, protected)
 app.get('/api/kaggle-registrations', requireAdmin, async (_req, res) => {
   try {
-    const registrations = await KaggleRegistration.find().sort({ registeredAt: -1 });
-    res.json(registrations);
+    const result = await pool.query(
+      'SELECT * FROM kaggle_registrations ORDER BY registered_at DESC'
+    );
+    res.json(result.rows);
   } catch (error) {
+    console.error('Fetch registrations error:', error);
     res.status(500).json({ error: 'Failed to fetch registrations.' });
   }
 });
@@ -131,5 +207,5 @@ app.use((_req, res) => {
 
 // ──────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT} (PostgreSQL)`));
 module.exports = app;

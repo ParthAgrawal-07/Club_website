@@ -3,18 +3,68 @@ from fastapi import FastAPI, HTTPException, Request, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security.api_key import APIKeyHeader
 from pydantic import BaseModel, EmailStr, field_validator
-from motor.motor_asyncio import AsyncIOMotorClient
 from google import genai
 from dotenv import load_dotenv
-from datetime import datetime
-import re
+from datetime import datetime, timezone
+from contextlib import asynccontextmanager
+import asyncpg
 
 load_dotenv()
 
-# --- CRITICAL: Vercel specifically looks for this 'app' variable ---
-app = FastAPI(title="AI Club DAIICT API", version="1.0.0")
+# ─── PostgreSQL Pool ────────────────────────────────────────────────────────────
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable is not set")
 
-# --- CORS SETUP ---
+# asyncpg needs postgresql:// not postgresql+asyncpg://
+_PG_DSN = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://") \
+                       .replace("postgres+asyncpg://", "postgresql://")
+
+db_pool: asyncpg.Pool | None = None
+
+# ─── App lifespan — create pool + tables ───────────────────────────────────────
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    global db_pool
+    db_pool = await asyncpg.create_pool(
+        dsn=_PG_DSN,
+        min_size=1,
+        max_size=10,
+        command_timeout=30,
+        ssl="require" if "localhost" not in _PG_DSN else None,
+    )
+    # Create tables if they don't exist
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS events (
+                id             SERIAL PRIMARY KEY,
+                event_name     VARCHAR(500)  NOT NULL,
+                event_date     VARCHAR(100)  NOT NULL,
+                summary        TEXT          NOT NULL,
+                winners        TEXT          DEFAULT '',
+                key_highlights TEXT          DEFAULT '',
+                created_at     TIMESTAMPTZ   DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS applications (
+                id         SERIAL PRIMARY KEY,
+                name       VARCHAR(255)  NOT NULL,
+                email      VARCHAR(255)  NOT NULL UNIQUE,
+                branch     VARCHAR(255)  NOT NULL,
+                interest   VARCHAR(255)  NOT NULL,
+                reason     TEXT          DEFAULT '',
+                applied_at TIMESTAMPTZ   DEFAULT NOW()
+            );
+        """)
+    print("✅ PostgreSQL pool ready, tables verified")
+    yield
+    await db_pool.close()
+
+
+# ─── FastAPI app ────────────────────────────────────────────────────────────────
+app = FastAPI(title="AI Club DAIICT API", version="2.0.0", lifespan=lifespan)
+
+# ─── CORS ───────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -24,42 +74,32 @@ app.add_middleware(
         "https://aiclubdau.vercel.app",
         "https://club-website-7aay.vercel.app",
         "https://club-website-eta.vercel.app",
+        "https://ai-club-website-mu.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- DATABASE SETUP ---
-MONGO_URI = os.getenv("MONGO_URI") or os.getenv("DATABASE_URL")
-if not MONGO_URI:
-    raise RuntimeError("MONGO_URI environment variable is not set")
-
-DB_NAME = os.getenv("DB_NAME", "neuralnode")
-db_client = AsyncIOMotorClient(MONGO_URI)
-db = db_client[DB_NAME]
-events_collection = db.Events
-apps_collection = db.applications
-
-# --- GEMINI SETUP ---
+# ─── Gemini ─────────────────────────────────────────────────────────────────────
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if not GOOGLE_API_KEY:
     raise RuntimeError("GOOGLE_API_KEY environment variable is not set")
 ai_client = genai.Client(api_key=GOOGLE_API_KEY)
 
-# --- ADMIN AUTH ---
+# ─── Admin auth ─────────────────────────────────────────────────────────────────
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")
 admin_key_header = APIKeyHeader(name="X-Admin-Key", auto_error=False)
 
 async def verify_admin(api_key: str = Depends(admin_key_header)):
     if not ADMIN_API_KEY:
-        # No key configured — allow in development only
         if os.getenv("ENVIRONMENT", "development") == "production":
             raise HTTPException(status_code=503, detail="Admin not configured")
         return True
     if api_key != ADMIN_API_KEY:
         raise HTTPException(status_code=401, detail="Invalid or missing admin API key")
     return True
+
 
 # ---------------------------------------------------------------------------
 # STATIC KNOWLEDGE BASE — mirrors everything displayed on the website
@@ -220,7 +260,8 @@ Q: Where can I find the club on social media?
 A: Discord: https://discord.gg/yB3Huet5 | Instagram: @aiclub_daiict | GitHub: ai-club-daiict | LinkedIn: AI Club DAIICT
 """
 
-# --- DATA MODELS ---
+
+# ─── Pydantic Models ────────────────────────────────────────────────────────────
 class ChatRequest(BaseModel):
     message: str
 
@@ -234,27 +275,29 @@ class ChatRequest(BaseModel):
             raise ValueError('Message too long (max 1000 characters)')
         return v
 
+
 class EventData(BaseModel):
     event_name: str
     event_date: str
     summary: str
-    winners: str
-    key_highlights: str
+    winners: str = ""
+    key_highlights: str = ""
 
-    @field_validator('event_name')
+    @field_validator('event_name', 'event_date', 'summary')
     @classmethod
-    def name_must_not_be_empty(cls, v: str) -> str:
+    def required_not_empty(cls, v: str) -> str:
         v = v.strip()
         if not v:
-            raise ValueError('Event name cannot be empty')
+            raise ValueError('Field cannot be empty')
         return v
+
 
 class ApplicationData(BaseModel):
     name: str
     email: EmailStr
     branch: str
     interest: str
-    reason: str
+    reason: str = ""
 
     @field_validator('name', 'branch', 'interest')
     @classmethod
@@ -264,9 +307,10 @@ class ApplicationData(BaseModel):
             raise ValueError('Field cannot be empty')
         return v
 
-# --- ROUTES ---
 
-# 1. Preflight CORS Handler for Vercel
+# ─── Routes ─────────────────────────────────────────────────────────────────────
+
+# Preflight CORS handlers for Vercel
 @app.options("/api/admin/events")
 async def options_admin_events(request: Request):
     return Response(status_code=200)
@@ -275,51 +319,62 @@ async def options_admin_events(request: Request):
 async def options_admin_applications(request: Request):
     return Response(status_code=200)
 
-# 2. Add New Event (protected)
+
+# POST /api/admin/events — add a new event (protected)
 @app.post("/api/admin/events")
 async def add_event(event: EventData, _: bool = Depends(verify_admin)):
     try:
-        new_event = event.model_dump()
-        new_event["created_at"] = datetime.utcnow()
-        result = await events_collection.insert_one(new_event)
-        return {"status": "Success", "id": str(result.inserted_id)}
+        row = await db_pool.fetchrow(
+            """INSERT INTO events (event_name, event_date, summary, winners, key_highlights)
+               VALUES ($1, $2, $3, $4, $5)
+               RETURNING id""",
+            event.event_name, event.event_date, event.summary,
+            event.winners, event.key_highlights,
+        )
+        return {"status": "Success", "id": row["id"]}
     except HTTPException:
         raise
     except Exception as e:
         print(f"Add event error: {e}")
         raise HTTPException(status_code=500, detail="Failed to save event")
 
-# 3. Get Applications (protected)
+
+# GET /api/admin/applications — list all membership applications (protected)
 @app.get("/api/admin/applications")
 async def get_applications(_: bool = Depends(verify_admin)):
     try:
-        apps = await apps_collection.find().sort("created_at", -1).to_list(500)
-        for app_item in apps:
-            app_item["_id"] = str(app_item["_id"])
-        return apps
+        rows = await db_pool.fetch(
+            "SELECT * FROM applications ORDER BY applied_at DESC LIMIT 500"
+        )
+        return [dict(r) for r in rows]
     except HTTPException:
         raise
     except Exception as e:
         print(f"Get applications error: {e}")
         raise HTTPException(status_code=500, detail="Could not fetch applications")
 
-# 5. AI Chatbot — now powered by full club knowledge base
+
+# POST /api/club-chat — AI chatbot powered by the full knowledge base
 @app.post("/api/club-chat")
 async def club_chat(request: ChatRequest):
     try:
-        # Also fetch the latest dynamic event from DB to supplement static knowledge
-        latest_event = await events_collection.find().sort("event_date", -1).to_list(1)
+        # Pull the most recent event from the DB to supplement static knowledge
         dynamic_context = ""
-        if latest_event:
-            ev = latest_event[0]
-            dynamic_context = f"""
+        try:
+            row = await db_pool.fetchrow(
+                "SELECT * FROM events ORDER BY created_at DESC LIMIT 1"
+            )
+            if row:
+                dynamic_context = f"""
 LATEST EVENT FROM DATABASE:
-- Name: {ev.get('event_name', 'Unknown')}
-- Date: {ev.get('event_date', 'Unknown')}
-- Summary: {ev.get('summary', 'N/A')}
-- Highlights: {ev.get('key_highlights', 'N/A')}
-- Winners: {ev.get('winners', 'N/A')}
+- Name: {row['event_name']}
+- Date: {row['event_date']}
+- Summary: {row['summary']}
+- Highlights: {row['key_highlights']}
+- Winners: {row['winners']}
 """
+        except Exception:
+            pass  # Don't fail the whole chat if DB query fails
 
         system_prompt = f"""You are NeuralNode, the official AI assistant of AI Club DAIICT — a friendly, knowledgeable, and enthusiastic chatbot embedded on the club's website.
 
@@ -349,9 +404,13 @@ RULES:
         raise
     except Exception as e:
         print(f"CRITICAL CHAT ERROR: {type(e).__name__}: {str(e)}")
-        raise HTTPException(status_code=500, detail="AI assistant is temporarily unavailable. Please try again in a moment.")
+        raise HTTPException(
+            status_code=500,
+            detail="AI assistant is temporarily unavailable. Please try again in a moment."
+        )
 
-# Used only for local testing
+
+# Local development entrypoint
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
