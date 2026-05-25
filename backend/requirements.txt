@@ -1,7 +1,24 @@
+# ─── Core web framework ───────────────────────────────────────────────────────
 fastapi
-uvicorn
-motor
-pydantic
-email-validator
+uvicorn[standard]
+aiofiles
+
+
+# ─── Database ─────────────────────────────────────────────────────────────────
+SQLAlchemy[asyncio]
+asyncpg
+greenlet
+
+# ─── Validation ───────────────────────────────────────────────────────────────
+pydantic[email]
+
+# ─── Authentication ───────────────────────────────────────────────────────────
+google-auth           # Google ID-Token server-side verification
+PyJWT                 # JWT creation and validation (HS256)
+
+# ─── AI ───────────────────────────────────────────────────────────────────────
 google-genai
+
+# ─── Config ───────────────────────────────────────────────────────────────────
 python-dotenv
+httpx
