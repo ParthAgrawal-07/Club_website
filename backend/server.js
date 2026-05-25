@@ -42,28 +42,30 @@ const pool = new Pool({
 });
 
 // ── CREATE TABLES ON STARTUP ──
+// Only create tables that don't already exist — matches real Supabase schema
 async function initDB() {
   const client = await pool.connect();
   try {
     await client.query(`
       CREATE TABLE IF NOT EXISTS applications (
-        id          SERIAL PRIMARY KEY,
-        name        VARCHAR(255)        NOT NULL,
-        email       VARCHAR(255)        NOT NULL UNIQUE,
-        branch      VARCHAR(255)        NOT NULL,
-        interest    VARCHAR(255)        NOT NULL,
-        reason      TEXT                DEFAULT '',
-        applied_at  TIMESTAMPTZ         DEFAULT NOW()
+        id         SERIAL PRIMARY KEY,
+        name       VARCHAR(255) NOT NULL,
+        email      VARCHAR(255) NOT NULL UNIQUE,
+        branch     VARCHAR(255) NOT NULL,
+        interest   VARCHAR(255) NOT NULL,
+        reason     TEXT         NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
       );
 
-      CREATE TABLE IF NOT EXISTS kaggle_registrations (
-        id            SERIAL PRIMARY KEY,
-        google_id     VARCHAR(255)  NOT NULL UNIQUE,
-        name          VARCHAR(255)  NOT NULL,
-        email         VARCHAR(255)  NOT NULL UNIQUE,
-        picture       TEXT          DEFAULT '',
-        kaggle_id     VARCHAR(255)  NOT NULL UNIQUE,
-        registered_at TIMESTAMPTZ   DEFAULT NOW()
+      CREATE TABLE IF NOT EXISTS public.users (
+        id         SERIAL PRIMARY KEY,
+        google_id  VARCHAR(255) NOT NULL UNIQUE,
+        name       VARCHAR(255) NOT NULL,
+        email      VARCHAR(255) NOT NULL UNIQUE,
+        picture    VARCHAR(500),
+        kaggle_id  VARCHAR(255),
+        last_login TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
       );
     `);
     console.log('✅ PostgreSQL tables ready');
@@ -136,8 +138,8 @@ app.post('/api/apply', async (req, res) => {
   }
 });
 
-// POST /api/kaggle-register
-// Body: { accessToken, googleId, name, email, picture, kaggleId }
+// POST /api/kaggle-register — register user for Kaggle contest
+// Uses the 'users' table (Google OAuth) + stores kaggle_id
 app.post('/api/kaggle-register', async (req, res) => {
   try {
     const { accessToken, googleId, name, email, picture, kaggleId } = req.body;
@@ -152,27 +154,28 @@ app.post('/api/kaggle-register', async (req, res) => {
       return res.status(401).json({ error: 'Invalid Google session. Please sign in again.' });
     }
 
-    // Check one Google account → one registration
-    const byGoogle = await pool.query(
-      'SELECT id FROM kaggle_registrations WHERE google_id = $1',
-      [info.sub]
-    );
-    if (byGoogle.rows.length > 0) {
-      return res.status(409).json({ error: `${info.email} has already registered for the contest.` });
-    }
-
-    // Check one Kaggle ID → one registration
+    // Check if this Kaggle ID is already taken by another user
     const byKaggle = await pool.query(
-      'SELECT id FROM kaggle_registrations WHERE kaggle_id = $1',
-      [kaggleId.trim()]
+      'SELECT id FROM public.users WHERE kaggle_id = $1 AND google_id != $2',
+      [kaggleId.trim(), info.sub]
     );
     if (byKaggle.rows.length > 0) {
-      return res.status(409).json({ error: 'This Kaggle ID is already registered.' });
+      return res.status(409).json({ error: 'This Kaggle ID is already registered by another user.' });
     }
 
-    await pool.query(
-      `INSERT INTO kaggle_registrations (google_id, name, email, picture, kaggle_id)
-       VALUES ($1, $2, $3, $4, $5)`,
+    // Upsert user — update kaggle_id and last_login on re-login
+    const result = await pool.query(
+      `INSERT INTO public.users (google_id, name, email, picture, kaggle_id, last_login, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+       ON CONFLICT (google_id)
+       DO UPDATE SET
+         kaggle_id  = CASE WHEN users.kaggle_id IS NOT NULL AND users.kaggle_id != $5
+                           THEN users.kaggle_id  -- don't overwrite if different ID already set
+                           ELSE $5
+                      END,
+         last_login = NOW(),
+         picture    = $4
+       RETURNING kaggle_id, (xmax = 0) AS is_new`,
       [
         info.sub,
         (info.name || name || '').trim(),
@@ -181,6 +184,12 @@ app.post('/api/kaggle-register', async (req, res) => {
         kaggleId.trim(),
       ]
     );
+
+    const row = result.rows[0];
+    // If DB already had a different Kaggle ID, reject
+    if (row.kaggle_id !== kaggleId.trim()) {
+      return res.status(409).json({ error: `${info.email} has already registered with a different Kaggle ID.` });
+    }
 
     res.status(201).json({ message: `🎉 Successfully registered! Welcome, ${info.name}!` });
   } catch (error) {
@@ -192,16 +201,32 @@ app.post('/api/kaggle-register', async (req, res) => {
   }
 });
 
-// GET /api/kaggle-registrations — all entries (admin use, protected)
+// GET /api/kaggle-registrations — all registered users with a kaggle_id (admin, protected)
 app.get('/api/kaggle-registrations', requireAdmin, async (_req, res) => {
   try {
     const result = await pool.query(
-      'SELECT * FROM kaggle_registrations ORDER BY registered_at DESC'
+      `SELECT id, google_id, name, email, picture, kaggle_id, created_at as registered_at
+       FROM public.users
+       WHERE kaggle_id IS NOT NULL AND kaggle_id != ''
+       ORDER BY created_at DESC`
     );
     res.json(result.rows);
   } catch (error) {
     console.error('Fetch registrations error:', error);
     res.status(500).json({ error: 'Failed to fetch registrations.' });
+  }
+});
+
+// GET /api/admin/applications — all membership applications (admin, protected)
+app.get('/api/admin/applications', requireAdmin, async (_req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM applications ORDER BY created_at DESC LIMIT 500'
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Fetch applications error:', error);
+    res.status(500).json({ error: 'Failed to fetch applications.' });
   }
 });
 

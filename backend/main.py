@@ -33,7 +33,7 @@ async def lifespan(application: FastAPI):
         command_timeout=30,
         ssl="require" if "localhost" not in _PG_DSN else None,
     )
-    # Create tables if they don't exist
+    # Create tables if they don't exist — aligned with real Supabase schema
     async with db_pool.acquire() as conn:
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS events (
@@ -41,9 +41,9 @@ async def lifespan(application: FastAPI):
                 event_name     VARCHAR(500)  NOT NULL,
                 event_date     VARCHAR(100)  NOT NULL,
                 summary        TEXT          NOT NULL,
-                winners        TEXT          DEFAULT '',
-                key_highlights TEXT          DEFAULT '',
-                created_at     TIMESTAMPTZ   DEFAULT NOW()
+                winners        VARCHAR(500)  NOT NULL DEFAULT '',
+                key_highlights TEXT          NOT NULL DEFAULT '',
+                created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW()
             );
 
             CREATE TABLE IF NOT EXISTS applications (
@@ -52,18 +52,19 @@ async def lifespan(application: FastAPI):
                 email      VARCHAR(255)  NOT NULL UNIQUE,
                 branch     VARCHAR(255)  NOT NULL,
                 interest   VARCHAR(255)  NOT NULL,
-                reason     TEXT          DEFAULT '',
-                applied_at TIMESTAMPTZ   DEFAULT NOW()
+                reason     TEXT          NOT NULL DEFAULT '',
+                created_at TIMESTAMPTZ   NOT NULL DEFAULT NOW()
             );
 
-            CREATE TABLE IF NOT EXISTS kaggle_registrations (
-                id            SERIAL PRIMARY KEY,
-                google_id     VARCHAR(255)  NOT NULL UNIQUE,
-                name          VARCHAR(255)  NOT NULL,
-                email         VARCHAR(255)  NOT NULL UNIQUE,
-                picture       TEXT          DEFAULT '',
-                kaggle_id     VARCHAR(255)  NOT NULL UNIQUE,
-                registered_at TIMESTAMPTZ   DEFAULT NOW()
+            CREATE TABLE IF NOT EXISTS public.users (
+                id         SERIAL PRIMARY KEY,
+                google_id  VARCHAR(255)  NOT NULL UNIQUE,
+                name       VARCHAR(255)  NOT NULL,
+                email      VARCHAR(255)  NOT NULL UNIQUE,
+                picture    VARCHAR(500),
+                kaggle_id  VARCHAR(255),
+                last_login TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+                created_at TIMESTAMPTZ   NOT NULL DEFAULT NOW()
             );
         """)
     print("✅ PostgreSQL pool ready, tables verified")
@@ -403,7 +404,7 @@ async def delete_event(event_id: int, _: bool = Depends(verify_admin)):
 async def get_applications(_: bool = Depends(verify_admin)):
     try:
         rows = await db_pool.fetch(
-            "SELECT * FROM applications ORDER BY applied_at DESC LIMIT 500"
+            "SELECT * FROM applications ORDER BY created_at DESC LIMIT 500"
         )
         return [dict(r) for r in rows]
     except HTTPException:
@@ -430,12 +431,15 @@ async def delete_application(app_id: int, _: bool = Depends(verify_admin)):
         raise HTTPException(status_code=500, detail="Could not delete application")
 
 
-# GET /api/admin/kaggle-registrations — list all registered participants (protected)
+# GET /api/admin/kaggle-registrations — list all registered Kaggle participants from users table (protected)
 @app.get("/api/admin/kaggle-registrations")
 async def get_kaggle_registrations(_: bool = Depends(verify_admin)):
     try:
         rows = await db_pool.fetch(
-            "SELECT * FROM kaggle_registrations ORDER BY registered_at DESC LIMIT 500"
+            """SELECT id, google_id, name, email, picture, kaggle_id, created_at AS registered_at
+               FROM public.users
+               WHERE kaggle_id IS NOT NULL AND kaggle_id != ''
+               ORDER BY created_at DESC LIMIT 500"""
         )
         return [dict(r) for r in rows]
     except HTTPException:
@@ -445,21 +449,21 @@ async def get_kaggle_registrations(_: bool = Depends(verify_admin)):
         raise HTTPException(status_code=500, detail="Could not fetch kaggle registrations")
 
 
-# DELETE /api/admin/kaggle-registrations/{reg_id} — delete a registration (protected)
+# DELETE /api/admin/kaggle-registrations/{reg_id} — clear kaggle_id from a user (protected)
 @app.delete("/api/admin/kaggle-registrations/{reg_id}")
 async def delete_kaggle_registration(reg_id: int, _: bool = Depends(verify_admin)):
     try:
         result = await db_pool.execute(
-            "DELETE FROM kaggle_registrations WHERE id = $1", reg_id
+            "UPDATE public.users SET kaggle_id = NULL WHERE id = $1 AND kaggle_id IS NOT NULL", reg_id
         )
-        if result == "DELETE 0":
+        if result == "UPDATE 0":
             raise HTTPException(status_code=404, detail="Registration not found")
-        return {"status": "Success", "message": f"Registration {reg_id} deleted"}
+        return {"status": "Success", "message": f"Kaggle registration for user {reg_id} removed"}
     except HTTPException:
         raise
     except Exception as e:
         print(f"Delete registration error: {e}")
-        raise HTTPException(status_code=500, detail="Could not delete registration")
+        raise HTTPException(status_code=500, detail="Could not remove kaggle registration")
 
 
 # POST /api/club-chat — AI chatbot powered by the full knowledge base
