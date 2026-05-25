@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, LogOut, Shield, Loader2 } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
+import { useNavigate, useLocation } from 'react-router-dom';
 import aiClubLogo from '@/assets/ai-club-logo.jpeg';
 
 const navItems = [
@@ -25,6 +26,26 @@ export default function Navbar() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
 
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    const parts = href.split('#');
+    const path = parts[0] || '/';
+    const hash = parts[1];
+
+    if (location.pathname !== path) {
+      e.preventDefault();
+      navigate(href);
+    } else if (hash) {
+      e.preventDefault();
+      const el = document.getElementById(hash);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  };
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener('scroll', onScroll);
@@ -34,8 +55,12 @@ export default function Navbar() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const apiBaseUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/auth/me`;
-        const res = await fetch(apiBaseUrl, { credentials: 'include' });
+        const apiBaseUrl = `${import.meta.env.PROD ? '' : 'http://localhost:8000'}/api/auth/me`;
+        const headers: Record<string, string> = {};
+        const token = localStorage.getItem('auth_token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(apiBaseUrl, { headers, credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
           if (data.authenticated && data.user) {
@@ -61,7 +86,7 @@ export default function Navbar() {
   const handleGoogleSuccess = async (credentialResponse: any) => {
     if (!credentialResponse.credential) return;
     try {
-      const apiBaseUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/auth/google`;
+      const apiBaseUrl = `${import.meta.env.PROD ? '' : 'http://localhost:8000'}/api/auth/google`;
       const syncRes = await fetch(apiBaseUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -73,6 +98,9 @@ export default function Navbar() {
       if (syncRes.ok) {
         const syncData = await syncRes.json();
         if (syncData.status === 'success') {
+          if (syncData.token) {
+            localStorage.setItem('auth_token', syncData.token);
+          }
           const mappedUser: UserProfile = {
             name: syncData.user.name,
             email: syncData.user.email,
@@ -88,11 +116,16 @@ export default function Navbar() {
 
   const logout = async () => {
     try {
-      const apiBaseUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/auth/logout`;
-      await fetch(apiBaseUrl, { method: 'POST', credentials: 'include' });
+      const apiBaseUrl = `${import.meta.env.PROD ? '' : 'http://localhost:8000'}/api/auth/logout`;
+      const headers: Record<string, string> = {};
+      const token = localStorage.getItem('auth_token');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      await fetch(apiBaseUrl, { method: 'POST', headers, credentials: 'include' });
     } catch (e) {
       console.error('Logout sync failed', e);
     }
+    localStorage.removeItem('auth_token');
     setUser(null);
     setShowDropdown(false);
   };
@@ -138,6 +171,7 @@ export default function Navbar() {
             >
               <a
                 href={item.href}
+                onClick={(e) => handleNavClick(e, item.href)}
                 className="relative block px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group"
               >
                 {item.label}
@@ -237,8 +271,11 @@ export default function Navbar() {
                   >
                     <a
                       href={item.href}
+                      onClick={(e) => {
+                        handleNavClick(e, item.href);
+                        setMobileOpen(false);
+                      }}
                       className="block py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={() => setMobileOpen(false)}
                     >
                       {item.label}
                     </a>

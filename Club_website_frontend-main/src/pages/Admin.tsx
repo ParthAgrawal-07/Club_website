@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import BackgroundCanvas from '@/components/club/BackgroundCanvas';
 import Navbar from '@/components/club/Navbar';
 import Footer from '@/components/club/Footer';
-import { Loader2, Download, Trash2, Calendar, Users, Award, Clipboard, Settings, Edit } from 'lucide-react';
+import { Loader2, Download, Trash2, Calendar, Users, Award, Clipboard, Settings, Edit, Eye, FileText } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 
 interface EventModel {
   id: number;
@@ -27,6 +28,24 @@ interface EventModel {
 
 const Admin = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'createEvent' | 'formBuilder' | 'manageEvents'>('dashboard');
+
+  // Auth & Admin Guard State
+  const [authState, setAuthState] = useState<{
+    isLoading: boolean;
+    isAuthenticated: boolean;
+    isAuthorized: boolean;
+    user: any;
+  }>({
+    isLoading: true,
+    isAuthenticated: false,
+    isAuthorized: false,
+    user: null
+  });
+
+  // Registration Details inspection state
+  const [selectedRegId, setSelectedRegId] = useState<number | null>(null);
+  const [selectedRegDetail, setSelectedRegDetail] = useState<any | null>(null);
+  const [loadingRegDetail, setLoadingRegDetail] = useState<boolean>(false);
 
   // Edit Event state
   const [editingEvent, setEditingEvent] = useState<EventModel | null>(null);
@@ -137,7 +156,16 @@ const Admin = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const getApiUrl = (path: string) => {
-    return `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${path}`;
+    return `${import.meta.env.PROD ? '' : 'http://localhost:8000'}${path}`;
+  };
+
+  const getAuthHeaders = (extra: Record<string, string> = {}) => {
+    const headers: Record<string, string> = { ...extra };
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
   };
 
   // 1. Fetch Events list for selectors
@@ -164,7 +192,10 @@ const Admin = () => {
   const fetchDashboardMetrics = async () => {
     setLoadingMetrics(true);
     try {
-      const res = await fetch(getApiUrl('/api/admin/dashboard'), { credentials: 'include' });
+      const res = await fetch(getApiUrl('/api/admin/dashboard'), {
+        headers: getAuthHeaders(),
+        credentials: 'include'
+      });
       if (res.ok) {
         const data = await res.json();
         setMetrics(data);
@@ -185,7 +216,10 @@ const Admin = () => {
       const searchParam = regSearch ? `&search=${encodeURIComponent(regSearch)}` : '';
       const res = await fetch(
         getApiUrl(`/api/admin/events/${eventId}/registrations?limit=100${searchParam}`),
-        { credentials: 'include' }
+        {
+          headers: getAuthHeaders(),
+          credentials: 'include'
+        }
       );
       if (res.ok) {
         const data = await res.json();
@@ -200,9 +234,110 @@ const Admin = () => {
 
 
 
+  const checkAdminAuth = async () => {
+    try {
+      const meUrl = `${import.meta.env.PROD ? '' : 'http://localhost:8000'}/api/auth/me`;
+      const res = await fetch(meUrl, {
+        headers: getAuthHeaders(),
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.authenticated && data.user) {
+          const isAdmin = data.user.email === 'meet56963@gmail.com';
+          setAuthState({
+            isLoading: false,
+            isAuthenticated: true,
+            isAuthorized: isAdmin,
+            user: data.user
+          });
+          
+          if (isAdmin) {
+            fetchEventsList();
+            fetchDashboardMetrics();
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('Admin auth check failed:', e);
+    }
+    
+    setAuthState({
+      isLoading: false,
+      isAuthenticated: false,
+      isAuthorized: false,
+      user: null
+    });
+  };
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    if (!credentialResponse.credential) return;
+    setAuthState(prev => ({ ...prev, isLoading: true }));
+    try {
+      const apiBaseUrl = `${import.meta.env.PROD ? '' : 'http://localhost:8000'}/api/auth/google`;
+      const syncRes = await fetch(apiBaseUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id_token: credentialResponse.credential
+        }),
+        credentials: 'include'
+      });
+      if (syncRes.ok) {
+        const syncData = await syncRes.json();
+        if (syncData.status === 'success' && syncData.user) {
+          const isAdmin = syncData.user.email === 'meet56963@gmail.com';
+          setAuthState({
+            isLoading: false,
+            isAuthenticated: true,
+            isAuthorized: isAdmin,
+            user: syncData.user
+          });
+          if (isAdmin) {
+            fetchEventsList();
+            fetchDashboardMetrics();
+          } else {
+            showToast('Access denied: You are not an administrator.', 'error');
+          }
+          return;
+        }
+      }
+    } catch (syncErr) {
+      console.error('Failed to sync login with PostgreSQL database:', syncErr);
+    }
+    setAuthState({
+      isLoading: false,
+      isAuthenticated: false,
+      isAuthorized: false,
+      user: null
+    });
+    showToast('Login verification failed. Please try again.', 'error');
+  };
+
+  const fetchRegistrationDetail = async (regId: number) => {
+    setSelectedRegId(regId);
+    setLoadingRegDetail(true);
+    try {
+      const res = await fetch(getApiUrl(`/api/admin/registrations/${regId}`), { headers: getAuthHeaders(), credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedRegDetail(data);
+      } else {
+        showToast('Failed to load registration details.', 'error');
+        setSelectedRegId(null);
+      }
+    } catch (e) {
+      console.error('Failed to load registration details', e);
+      showToast('Error loading registration details.', 'error');
+      setSelectedRegId(null);
+    } finally {
+      setLoadingRegDetail(false);
+    }
+  };
+
   useEffect(() => {
-    fetchEventsList();
-    fetchDashboardMetrics();
+    checkAdminAuth();
   }, []);
 
   const fetchFormFields = async (eventId: number | '') => {
@@ -210,6 +345,7 @@ const Admin = () => {
     setLoadingFields(true);
     try {
       const res = await fetch(getApiUrl(`/api/admin/events/${eventId}/form-fields`), {
+        headers: getAuthHeaders(),
         credentials: 'include'
       });
       if (res.ok) {
@@ -262,7 +398,7 @@ const Admin = () => {
 
       const res = await fetch(getApiUrl(`/api/admin/events/${builderEventId}/form-fields`), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload),
         credentials: 'include'
       });
@@ -304,6 +440,7 @@ const Admin = () => {
         try {
           const res = await fetch(getApiUrl(`/api/admin/form-fields/${fieldId}`), {
             method: 'DELETE',
+            headers: getAuthHeaders(),
             credentials: 'include'
           });
           if (res.ok) {
@@ -329,6 +466,7 @@ const Admin = () => {
         try {
           const res = await fetch(getApiUrl(`/api/admin/events/${eventId}`), {
             method: 'DELETE',
+            headers: getAuthHeaders(),
             credentials: 'include'
           });
           if (res.ok) {
@@ -392,7 +530,7 @@ const Admin = () => {
 
       const res = await fetch(getApiUrl(`/api/admin/events/${editingEvent.id}`), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload),
         credentials: 'include'
       });
@@ -443,6 +581,7 @@ const Admin = () => {
         try {
           const res = await fetch(getApiUrl(`/api/admin/registrations/${regId}`), {
             method: 'DELETE',
+            headers: getAuthHeaders(),
             credentials: 'include'
           });
           if (res.ok) {
@@ -467,7 +606,7 @@ const Admin = () => {
     const ev = events.find(e => e.id === selectedEventId);
     const title = ev ? ev.title : `event_${selectedEventId}`;
     try {
-      const res = await fetch(getApiUrl(`/api/admin/events/${selectedEventId}/export`), { credentials: 'include' });
+      const res = await fetch(getApiUrl(`/api/admin/events/${selectedEventId}/export`), { headers: getAuthHeaders(), credentials: 'include' });
       if (!res.ok) throw new Error('Export failed');
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -510,7 +649,7 @@ const Admin = () => {
 
       const res = await fetch(getApiUrl('/api/admin/events'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload),
         credentials: 'include'
       });
@@ -550,6 +689,89 @@ const Admin = () => {
     }
   };
 
+  if (authState.isLoading) {
+    return (
+      <>
+        <BackgroundCanvas />
+        <Navbar />
+        <div className="min-h-screen flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm relative z-[1]">
+          <Loader2 className="animate-spin text-primary w-12 h-12 mb-4" />
+          <p className="text-xs font-mono tracking-widest text-primary uppercase">Verifying Authorization...</p>
+        </div>
+      </>
+    );
+  }
+
+  if (!authState.isAuthenticated) {
+    return (
+      <>
+        <BackgroundCanvas />
+        <Navbar />
+        <div className="min-h-screen flex items-center justify-center px-6 relative z-[1] bg-background">
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            className="glass-card p-8 md:p-12 max-w-md w-full text-center border border-border bg-card/30 backdrop-blur-md"
+          >
+            <div className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-[10px] font-mono mb-6 bg-primary/10 border border-primary/30 text-primary">
+              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+              RESTRICTED AREA
+            </div>
+            <h2 className="text-xl md:text-2xl font-bold font-display text-foreground mb-3">Admin Portal</h2>
+            <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+              Please authenticate with your administrator account to access event templates, dynamic form configuration, and registrations.
+            </p>
+            <div className="flex justify-center">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => showToast('Login Failed', 'error')}
+                theme="filled_blue"
+                size="large"
+                shape="rectangular"
+              />
+            </div>
+          </motion.div>
+        </div>
+      </>
+    );
+  }
+
+  if (!authState.isAuthorized) {
+    return (
+      <>
+        <BackgroundCanvas />
+        <Navbar />
+        <div className="min-h-screen flex items-center justify-center px-6 relative z-[1] bg-background">
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            className="glass-card p-8 md:p-12 max-w-md w-full text-center border border-border bg-card/30 backdrop-blur-md"
+          >
+            <div className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-[10px] font-mono mb-6 bg-destructive/10 border border-destructive/30 text-destructive">
+              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+              ACCESS DENIED
+            </div>
+            <h2 className="text-xl md:text-2xl font-bold font-display text-foreground mb-3">Unauthorized</h2>
+            <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+              Your account (<span className="text-primary font-mono">{authState.user.email}</span>) does not have administrative privileges.
+            </p>
+            <p className="text-xs text-muted-foreground/60 mb-8 leading-relaxed">
+              If you believe this is an error, please contact the lead administrator.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <a
+                href="/"
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-xs font-bold btn-glow text-primary-foreground transition-all duration-300"
+              >
+                Go to Homepage
+              </a>
+            </div>
+          </motion.div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <BackgroundCanvas />
@@ -564,7 +786,7 @@ const Admin = () => {
 
           {/* Metrics summary cards */}
           {metrics ? (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
               {[
                 { label: 'Total Events', val: metrics.total_events, icon: <Calendar className="text-blue-400" /> },
                 { label: 'Total Registrations', val: metrics.total_registrations, icon: <Users className="text-green-400" /> },
@@ -583,7 +805,7 @@ const Admin = () => {
             </div>
           ) : (
             loadingMetrics && (
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className="glass-card p-4 rounded-xl border border-border flex items-center justify-between gap-2 animate-pulse">
                     <div className="space-y-2">
@@ -713,6 +935,13 @@ const Admin = () => {
                               <td className="p-3">{reg.user_email}</td>
                               <td className="p-3 font-mono">{reg.team_name || 'Individual'}</td>
                               <td className="p-3 text-right">
+                                <button
+                                  onClick={() => fetchRegistrationDetail(reg.id)}
+                                  className="p-1.5 text-muted-foreground hover:text-primary rounded-lg hover:bg-primary/10 transition-colors mr-1.5"
+                                  title="View Details"
+                                >
+                                  <Eye size={14} />
+                                </button>
                                 <button
                                   onClick={() => handleDeleteRegistration(reg.id)}
                                   className="p-1.5 text-muted-foreground hover:text-destructive rounded-lg hover:bg-destructive/10 transition-colors"
@@ -1520,6 +1749,150 @@ const Admin = () => {
                   {isSubmitting ? 'Saving Changes...' : 'Save Changes'}
                 </button>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Registration Details Modal */}
+      <AnimatePresence>
+        {selectedRegId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setSelectedRegId(null); setSelectedRegDetail(null); }}
+              className="fixed inset-0 bg-background/80 backdrop-blur-md"
+            />
+
+            {/* Modal Container */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: 'spring', duration: 0.5 }}
+              className="relative w-full max-w-2xl rounded-2xl bg-card border border-border p-6 md:p-8 shadow-2xl overflow-y-auto max-h-[90vh] z-10"
+              style={{ background: 'linear-gradient(135deg, hsl(217 91% 60% / 0.05), hsl(217 91% 60% / 0.02))' }}
+            >
+              {/* Close Button */}
+              <button
+                onClick={() => { setSelectedRegId(null); setSelectedRegDetail(null); }}
+                className="absolute top-4 right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              >
+                ✕
+              </button>
+
+              <h3 className="font-display font-extrabold text-foreground text-xl mb-1">Registration Details</h3>
+              <p className="text-xs text-muted-foreground mb-6">Inspecting registration ID: <span className="text-primary font-mono">{selectedRegId}</span></p>
+
+              {loadingRegDetail ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
+                  <Loader2 className="animate-spin text-primary w-8 h-8" />
+                  <span className="text-xs text-muted-foreground font-mono">Fetching data...</span>
+                </div>
+              ) : selectedRegDetail ? (
+                <div className="space-y-6">
+                  {/* User profile metadata */}
+                  <div className="flex items-center gap-4 bg-secondary/30 p-4 rounded-xl border border-border/50">
+                    <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center font-display text-lg font-extrabold text-primary border border-primary/20">
+                      {selectedRegDetail.user_name ? selectedRegDetail.user_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() : 'U'}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-foreground text-sm leading-snug">{selectedRegDetail.user_name}</h4>
+                      <p className="text-xs text-muted-foreground leading-normal">{selectedRegDetail.user_email}</p>
+                      <p className="text-[10px] text-muted-foreground/60 mt-1">Registered at: {new Date(selectedRegDetail.registered_at).toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  {/* Event & Team Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-xl bg-secondary/20 border border-border/40">
+                      <span className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider">Event Details</span>
+                      <h5 className="font-display font-bold text-sm text-foreground mt-1.5">{selectedRegDetail.event_title}</h5>
+                      <span className="inline-block text-[9px] font-mono bg-primary/10 border border-primary/20 text-primary px-2 py-0.5 rounded mt-2">
+                        {selectedRegDetail.team_name ? 'Team Event' : 'Individual Event'}
+                      </span>
+                    </div>
+
+                    {selectedRegDetail.team_name && (
+                      <div className="p-4 rounded-xl bg-secondary/20 border border-border/40">
+                        <span className="text-[10px] text-muted-foreground uppercase font-mono tracking-wider">Team Information</span>
+                        <h5 className="font-display font-bold text-sm text-foreground mt-1.5">Team: {selectedRegDetail.team_name}</h5>
+                        <p className="text-xs text-primary font-semibold mt-1">Leader: {selectedRegDetail.user_name}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Team Members List (If applicable) */}
+                  {selectedRegDetail.team && selectedRegDetail.team.members && selectedRegDetail.team.members.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider font-mono">Team Members</h4>
+                      <div className="space-y-1.5">
+                        {selectedRegDetail.team.members.map((member: any) => (
+                          <div key={member.id} className="flex justify-between items-center bg-secondary/15 p-2 px-3 rounded-lg border border-border/30 text-xs">
+                            <span className="font-medium text-foreground">{member.member_name}</span>
+                            <span className="text-muted-foreground font-mono text-[11px]">{member.member_email}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Custom Form Fields Responses */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider font-mono">Form Responses</h4>
+                    
+                    {Object.keys(selectedRegDetail.responses_flat || {}).length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">No custom fields were configured for this event.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {Object.entries(selectedRegDetail.responses_flat).map(([label, val]: [string, any]) => {
+                          const isUpload = selectedRegDetail.uploaded_files && selectedRegDetail.uploaded_files.some((f: any) => f.field_label === label);
+                          return (
+                            <div key={label} className="bg-secondary/10 p-3.5 rounded-xl border border-border/40">
+                              <span className="text-[10px] font-mono text-muted-foreground tracking-wide uppercase">{label}</span>
+                              <div className="mt-1 text-sm font-medium text-foreground">
+                                {isUpload ? (
+                                  (() => {
+                                    const fileObj = selectedRegDetail.uploaded_files.find((f: any) => f.field_label === label);
+                                    return fileObj ? (
+                                      <a
+                                        href={getApiUrl(fileObj.file_url)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                                      >
+                                        <FileText size={14} />
+                                        {fileObj.original_name || 'Download file'}
+                                      </a>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">File not found</span>
+                                    );
+                                  })()
+                                ) : Array.isArray(val) ? (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {val.map((item: string) => (
+                                      <span key={item} className="text-xs bg-secondary px-2.5 py-0.5 rounded border border-border/30 text-foreground">{item}</span>
+                                    ))}
+                                  </div>
+                                ) : typeof val === 'boolean' ? (
+                                  <span>{val ? 'Yes' : 'No'}</span>
+                                ) : (
+                                  <span className="whitespace-pre-wrap">{String(val)}</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-8">Failed to render registration details.</p>
+              )}
             </motion.div>
           </div>
         )}

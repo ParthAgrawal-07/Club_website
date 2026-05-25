@@ -151,6 +151,7 @@ async def google_auth(
         status="success",
         message="Account created successfully." if is_new else "Logged in successfully.",
         user=UserPublicResponse.model_validate(db_user),
+        token=access_token,
     )
 
 

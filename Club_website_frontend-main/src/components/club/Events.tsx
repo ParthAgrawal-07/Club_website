@@ -60,7 +60,7 @@ export default function Events() {
   const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const getApiUrl = (path: string) => {
-    return `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${path}`;
+    return `${import.meta.env.PROD ? '' : 'http://localhost:8000'}${path}`;
   };
 
   // 1. Fetch Events from backend
@@ -81,14 +81,18 @@ export default function Events() {
 
   const fetchUserData = async () => {
     try {
-      const authRes = await fetch(getApiUrl('/api/auth/me'), { credentials: 'include' });
+      const headers: Record<string, string> = {};
+      const token = localStorage.getItem('auth_token');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const authRes = await fetch(getApiUrl('/api/auth/me'), { headers, credentials: 'include' });
       if (authRes.ok) {
         const authData = await authRes.json();
         if (authData.authenticated && authData.user) {
           setUserProfile(authData.user);
           
           // Fetch registrations
-          const regRes = await fetch(getApiUrl('/api/user/registrations'), { credentials: 'include' });
+          const regRes = await fetch(getApiUrl('/api/user/registrations'), { headers, credentials: 'include' });
           if (regRes.ok) {
             const regData = await regRes.json();
             if (regData.registrations) {
@@ -159,7 +163,11 @@ export default function Events() {
         // Prepopulate default fields from backend profile
         let profile: any = {};
         try {
-          const authRes = await fetch(getApiUrl('/api/auth/me'), { credentials: 'include' });
+          const headers: Record<string, string> = {};
+          const token = localStorage.getItem('auth_token');
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+
+          const authRes = await fetch(getApiUrl('/api/auth/me'), { headers, credentials: 'include' });
           if (authRes.ok) {
             const authData = await authRes.json();
             if (authData.authenticated && authData.user) {
@@ -253,7 +261,27 @@ export default function Events() {
     if (!selectedEvent) return;
 
     // Check if user is logged in
-    if (!userProfile) {
+    let currentUser = userProfile;
+    if (!currentUser) {
+      try {
+        const headers: Record<string, string> = {};
+        const token = localStorage.getItem('auth_token');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const authRes = await fetch(getApiUrl('/api/auth/me'), { headers, credentials: 'include' });
+        if (authRes.ok) {
+          const authData = await authRes.json();
+          if (authData.authenticated && authData.user) {
+            currentUser = authData.user;
+            setUserProfile(authData.user);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to check auth during submission", err);
+      }
+    }
+
+    if (!currentUser) {
       setSubmitMessage({ type: 'error', text: 'You must be logged in to register for events.' });
       return;
     }
@@ -293,6 +321,7 @@ export default function Events() {
       const apiPath = `/api/events/${selectedEvent.id}/register`;
 
       let res;
+      const token = localStorage.getItem('auth_token');
       if (hasFiles) {
         // Send as multipart/form-data
         const formDataPayload = new FormData();
@@ -305,16 +334,23 @@ export default function Events() {
           formDataPayload.append(fieldId, file);
         });
 
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         res = await fetch(getApiUrl(apiPath), {
           method: 'POST',
+          headers: headers,
           body: formDataPayload,
           credentials: 'include' // include session cookies
         });
       } else {
         // Send as JSON
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         res = await fetch(getApiUrl(apiPath), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: headers,
           body: JSON.stringify({
             responses: responses,
             team: teamInput
@@ -325,6 +361,9 @@ export default function Events() {
 
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error('You must be logged in to register for events.');
+        }
         throw new Error(data.detail || 'Registration failed');
       }
 

@@ -50,8 +50,14 @@ logger = logging.getLogger(__name__)
 # ─── Configuration ────────────────────────────────────────────────────────────
 
 def get_upload_dir() -> Path:
-    upload_dir = Path(os.getenv("UPLOAD_DIR", "./uploads"))
-    upload_dir.mkdir(parents=True, exist_ok=True)
+    default_dir = "/tmp/uploads" if os.getenv("VERCEL") else "./uploads"
+    upload_dir = Path(os.getenv("UPLOAD_DIR", default_dir))
+    try:
+        upload_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        # Fallback to /tmp/uploads if directory creation fails due to read-only filesystem
+        upload_dir = Path("/tmp/uploads")
+        upload_dir.mkdir(parents=True, exist_ok=True)
     return upload_dir
 
 

@@ -54,6 +54,7 @@ class AuthSuccessResponse(BaseModel):
     status: str = "success"
     message: str
     user: UserPublicResponse
+    token: Optional[str] = None
 
 
 class AuthMeResponse(BaseModel):
