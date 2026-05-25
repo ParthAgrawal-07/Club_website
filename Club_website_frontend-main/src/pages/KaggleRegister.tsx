@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGoogleLogin } from '@react-oauth/google';
+import { getApiUrl } from '@/lib/utils';
 
 /* ── Particles ── */
 const PARTICLES = Array.from({ length: 22 }, (_, i) => ({
@@ -16,7 +17,7 @@ interface GoogleUser {
   googleId: string; name: string; email: string; picture: string; credential: string;
 }
 
-const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+// API_BASE is handled dynamically via getApiUrl
 
 export default function KaggleRegister() {
   const [status, setStatus] = useState<Status>('idle');
@@ -63,7 +64,7 @@ export default function KaggleRegister() {
     setStatus('submitting');
 
     try {
-      const res = await fetch(`${API_BASE}/api/kaggle-register`, {
+      const res = await fetch(getApiUrl('/api/kaggle-register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -520,6 +520,23 @@ RULES:
         )
 
 
+@app.options("/api/events")
+async def options_public_events(request: Request):
+    return Response(status_code=200)
+
+# GET /api/events — public endpoint to list all events (for display on website)
+@app.get("/api/events")
+async def get_public_events():
+    try:
+        rows = await db_pool.fetch(
+            "SELECT * FROM events ORDER BY created_at DESC LIMIT 500"
+        )
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"Get public events error: {e}")
+        raise HTTPException(status_code=500, detail="Could not fetch events")
+
+
 # Local development entrypoint
 if __name__ == "__main__":
     import uvicorn

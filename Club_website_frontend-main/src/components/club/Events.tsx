@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { getApiUrl } from '@/lib/utils';
 
 export default function Events() {
   const [activeTab, setActiveTab] = useState('upcoming');
   const [timeLeft, setTimeLeft] = useState({ d: '00', h: '00', m: '00', s: '00' });
+  const [dbEvents, setDbEvents] = useState<Array<{ tag: string; tagClass: string; title: string; desc: string; meta: string[] }>>([]);
 
   useEffect(() => {
     const target = new Date('2026-05-29T18:00:00').getTime();
@@ -21,9 +23,31 @@ export default function Events() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const res = await fetch(getApiUrl('/api/events'));
+        if (res.ok) {
+          const data = await res.json();
+          const mapped = data.map((e: any) => ({
+            tag: e.winners ? 'Competition' : 'Event',
+            tagClass: e.winners ? 'tag-pink' : 'tag-blue',
+            title: e.event_name,
+            desc: e.summary + (e.key_highlights ? ` Highlights: ${e.key_highlights}` : '') + (e.winners ? ` Winners: ${e.winners}` : ''),
+            meta: [e.event_date, 'Added dynamically'],
+          }));
+          setDbEvents(mapped);
+        }
+      } catch (err) {
+        console.error('Failed to load dynamic events:', err);
+      }
+    };
+    fetchEvents();
+  }, []);
+
   const tabs = ['upcoming', 'past', 'workshops'];
 
-  const eventCards: Record<string, Array<{ tag: string; tagClass: string; title: string; desc: string; meta: string[] }>> = {
+  const staticEventCards: Record<string, Array<{ tag: string; tagClass: string; title: string; desc: string; meta: string[] }>> = {
     upcoming: [
       {
         tag: 'Kaggle Contest',
@@ -107,6 +131,12 @@ export default function Events() {
         meta: ['Coming Soon', 'Intermediate level'],
       },
     ],
+  };
+
+  const eventCards: Record<string, Array<{ tag: string; tagClass: string; title: string; desc: string; meta: string[] }>> = {
+    upcoming: staticEventCards.upcoming,
+    past: [...dbEvents, ...staticEventCards.past],
+    workshops: staticEventCards.workshops,
   };
 
   // Featured event for the countdown banner

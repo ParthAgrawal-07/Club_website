@@ -13,6 +13,7 @@
   "routes": [
     { "src": "/api/club-chat",            "dest": "main.py" },
     { "src": "/api/admin/(.*)",           "dest": "main.py" },
+    { "src": "/api/events",               "dest": "main.py" },
     { "src": "/api/kaggle-register",      "dest": "server.js" },
     { "src": "/api/kaggle-registrations", "dest": "server.js" },
     { "src": "/api/apply",                "dest": "server.js" },
