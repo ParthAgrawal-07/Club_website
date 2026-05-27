@@ -36,11 +36,11 @@ const Index = () => {
       <Navbar />
       <Hero />
       <div className="h-px bg-border mx-6 md:mx-12 relative z-[1]" />
-      <Events />
+      <Events isHomepage={true} />
       <div className="h-px bg-border mx-6 md:mx-12 relative z-[1]" />
-      <Projects />
+      <Projects isHomepage={true} />
       <div className="h-px bg-border mx-6 md:mx-12 relative z-[1]" />
-      <Team />
+      <Team isHomepage={true} />
       <div className="h-px bg-border mx-6 md:mx-12 relative z-[1]" />
       <Roadmap />
       <div className="h-px bg-border mx-6 md:mx-12 relative z-[1]" />

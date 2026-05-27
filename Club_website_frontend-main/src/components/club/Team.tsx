@@ -1,6 +1,8 @@
 import { Member, MemberRole } from "../../data/members";
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
+import { Search, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
 
@@ -98,9 +100,11 @@ const ROLE_ORDER: Record<string, number> = {
   'Member':               5,
 };
 
-export default function Team() {
+export default function Team({ isHomepage = false }: { isHomepage?: boolean }) {
   const [memberList, setMemberList] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all'); // 'all', 'convenor', 'core', 'extended', 'member'
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -130,6 +134,32 @@ export default function Team() {
     fetchMembers();
   }, []);
 
+  const filteredMembers = memberList.filter((m) => {
+    if (isHomepage) {
+      return m.role === 'Convenor' || m.role === 'Deputy Convenor' || m.role === 'Core Member';
+    }
+
+    if (searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = m.name.toLowerCase().includes(q) ||
+                            m.role.toLowerCase().includes(q) ||
+                            (m.description && m.description.toLowerCase().includes(q));
+      if (!matchesSearch) return false;
+    }
+
+    if (roleFilter === 'convenor') {
+      return m.role === 'Convenor' || m.role === 'Deputy Convenor';
+    } else if (roleFilter === 'core') {
+      return m.role === 'Core Member';
+    } else if (roleFilter === 'extended') {
+      return m.role === 'Extended Core Member';
+    } else if (roleFilter === 'member') {
+      return m.role === 'Member';
+    }
+
+    return true;
+  });
+
   return (
     <section id="team" className="relative z-[1] max-w-[1200px] mx-auto px-6 md:px-12 py-24">
       <motion.div
@@ -143,13 +173,57 @@ export default function Team() {
           Meet the Team
         </h2>
 
+        {/* Search Bar */}
+        {!isHomepage && (
+          <div className="relative w-full max-w-md mb-8">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
+              <Search size={16} className="text-primary/60" />
+            </span>
+            <input
+              type="text"
+              placeholder="Search team members by name, role..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-secondary/80 border border-border rounded-xl pl-10 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-muted-foreground hover:text-foreground">Clear</button>
+            )}
+          </div>
+        )}
+
+        {/* Role Filters */}
+        {!isHomepage && (
+          <div className="flex flex-wrap gap-2 mb-10">
+            {[
+              { id: 'all', label: 'All Members' },
+              { id: 'convenor', label: 'Convenors' },
+              { id: 'core', label: 'Core Team' },
+              { id: 'extended', label: 'Extended Core' },
+              { id: 'member', label: 'General Members' }
+            ].map((pill) => (
+              <button
+                key={pill.id}
+                onClick={() => setRoleFilter(pill.id)}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                  roleFilter === pill.id
+                    ? 'bg-primary/20 text-primary border-primary/45 shadow-[0_0_15px_rgba(37,99,235,0.15)]'
+                    : 'bg-secondary/50 text-muted-foreground border-border hover:bg-secondary hover:text-foreground'
+                }`}
+              >
+                {pill.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center text-muted-foreground text-sm py-12">Loading team...</div>
-        ) : memberList.length === 0 ? (
+        ) : filteredMembers.length === 0 ? (
           <div className="text-center text-muted-foreground text-sm py-12">No team members found.</div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-            {memberList.map((m, i) => (
+            {filteredMembers.map((m, i) => (
               <motion.div
                 key={m.id}
                 custom={i}
@@ -208,6 +282,18 @@ export default function Team() {
                 )}
               </motion.div>
             ))}
+          </div>
+        )}
+
+        {/* View All Team CTA on Homepage */}
+        {isHomepage && (
+          <div className="flex justify-center mt-12">
+            <Link
+              to="/team"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/95 transition-all shadow-[0_0_20px_rgba(37,99,235,0.25)] hover:scale-105 duration-300"
+            >
+              Meet the Full Team <ArrowRight size={16} />
+            </Link>
           </div>
         )}
       </motion.div>

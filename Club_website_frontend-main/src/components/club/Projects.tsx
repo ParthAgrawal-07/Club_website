@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Search, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Project } from '../../data/projects';
 import { supabase } from '../../lib/supabase';
 
@@ -58,10 +59,11 @@ const tabLabels: Record<string, string> = {
   energy:   'ENERGY',
 };
 
-export default function Projects() {
+export default function Projects({ isHomepage = false }: { isHomepage?: boolean }) {
   const [activeTab, setActiveTab] = useState('all');
   const [projectList, setProjectList] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -106,9 +108,19 @@ export default function Projects() {
     fetchProjects();
   }, []);
 
-  const filtered = projectList.filter(
-    (p) => activeTab === 'all' || getCategory(p.tags) === activeTab
-  );
+  const filtered = projectList.filter((p) => {
+    if (!isHomepage && searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = p.title.toLowerCase().includes(q) ||
+                            p.author.toLowerCase().includes(q) ||
+                            p.description.toLowerCase().includes(q) ||
+                            p.tags.some(tag => tag.toLowerCase().includes(q));
+      if (!matchesSearch) return false;
+    }
+    return isHomepage || activeTab === 'all' || getCategory(p.tags) === activeTab;
+  });
+
+  const displayedProjects = isHomepage ? filtered.slice(0, 3) : filtered;
 
   return (
     <section id="projects" className="relative z-[1] max-w-[1200px] mx-auto px-6 md:px-12 py-24">
@@ -123,34 +135,55 @@ export default function Projects() {
           Student Projects
         </h2>
 
+        {/* Search Bar */}
+        {!isHomepage && (
+          <div className="relative w-full max-w-md mb-8">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
+              <Search size={16} className="text-primary/60" />
+            </span>
+            <input
+              type="text"
+              placeholder="Search projects by title, author, or tag..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-secondary/80 border border-border rounded-xl pl-10 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute inset-y-0 right-0 flex items-center pr-3 text-xs text-muted-foreground hover:text-foreground">Clear</button>
+            )}
+          </div>
+        )}
+
         {/* Tabs */}
-        <div className="flex gap-1 border-b border-border mb-10 flex-wrap">
-          {categoryOrder.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`relative px-5 py-2.5 text-sm font-medium -mb-px transition-colors ${
-                activeTab === tab ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {tabLabels[tab]}
-              {activeTab === tab && (
-                <motion.div
-                  layoutId="project-tab-indicator"
-                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                />
-              )}
-            </button>
-          ))}
-        </div>
+        {!isHomepage && (
+          <div className="flex gap-1 border-b border-border mb-10 flex-wrap">
+            {categoryOrder.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`relative px-5 py-2.5 text-sm font-medium -mb-px transition-colors ${
+                  activeTab === tab ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tabLabels[tab]}
+                {activeTab === tab && (
+                  <motion.div
+                    layoutId="project-tab-indicator"
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center text-muted-foreground text-sm py-12">Loading projects...</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             <AnimatePresence mode="popLayout">
-              {filtered.map((p, i) => {
+              {displayedProjects.map((p, i) => {
                 const { tagClass, label } = getPrimaryTag(p.tags);
                 // Handle both CamelCase and SnakeCase from API/static definitions
                 const gitLink = (p as any).github_link || p.githubLink || '';
@@ -207,15 +240,27 @@ export default function Projects() {
               })}
             </AnimatePresence>
 
-            {filtered.length === 0 && (
+            {displayedProjects.length === 0 && (
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="text-muted-foreground text-sm col-span-full"
               >
-                No projects in this category yet — stay tuned!
+                No projects found.
               </motion.p>
             )}
+          </div>
+        )}
+
+        {/* View All Projects CTA on Homepage */}
+        {isHomepage && (
+          <div className="flex justify-center mt-12">
+            <Link
+              to="/projects"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/95 transition-all shadow-[0_0_20px_rgba(37,99,235,0.25)] hover:scale-105 duration-300"
+            >
+              Browse All Projects <ArrowRight size={16} />
+            </Link>
           </div>
         )}
       </motion.div>

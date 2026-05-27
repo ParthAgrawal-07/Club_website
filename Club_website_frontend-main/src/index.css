@@ -94,6 +94,7 @@
   }
 
   .glass-card {
+    position: relative;
     background: hsl(var(--surface));
     border: 1px solid hsl(var(--border));
     @apply rounded-2xl transition-all duration-300;

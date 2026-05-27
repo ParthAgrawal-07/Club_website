@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import BackgroundCanvas from '@/components/club/BackgroundCanvas';
 import Navbar from '@/components/club/Navbar';
 import Footer from '@/components/club/Footer';
-import { Loader2, Download, Trash2, Calendar, Users, Award, Clipboard, Settings, Edit, Eye, FileText } from 'lucide-react';
+import { Loader2, Download, Trash2, Calendar, Users, Award, Clipboard, Settings, Edit, Eye, FileText, Archive, Plus, Image, Link2, Tag } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import { supabase } from '../lib/supabase';
 
@@ -29,7 +29,7 @@ interface EventModel {
 }
 
 const Admin = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'createEvent' | 'formBuilder' | 'manageEvents' | 'manageMembers' | 'manageProjects'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'createEvent' | 'formBuilder' | 'manageEvents' | 'manageMembers' | 'manageProjects' | 'pastEvents'>('dashboard');
 
   // Auth & Admin Guard State
   const [authState, setAuthState] = useState<{
@@ -140,6 +140,23 @@ const Admin = () => {
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [adminProjects, setAdminProjects] = useState<any[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
+
+  // Past Events Archive State
+  const [pastEvents, setPastEvents] = useState<any[]>([]);
+  const [loadingPastEvents, setLoadingPastEvents] = useState(false);
+  const [isPastEventModalOpen, setIsPastEventModalOpen] = useState(false);
+  const [editingPastEvent, setEditingPastEvent] = useState<any>(null);
+  const [pastEventForm, setPastEventForm] = useState({
+    title: '',
+    description: '',
+    category: 'workshop',
+    date_label: '',
+    image_url: '',
+    speaker: '',
+    participants: '' as string | number,
+    sort_order: 0
+  });
+  const [supabaseCounts, setSupabaseCounts] = useState({ members: 0, projects: 0, pastEvents: 0 });
 
   // Modals / Editor States for Members
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
@@ -834,11 +851,111 @@ const Admin = () => {
     );
   };
 
+  // ── Past Events Handlers ────────────────────────────────────────────────────
+  const fetchPastEvents = async () => {
+    setLoadingPastEvents(true);
+    try {
+      const { data, error } = await supabase
+        .from('past_events')
+        .select('*')
+        .order('sort_order', { ascending: false });
+      if (error) showToast('Failed to load past events: ' + error.message, 'error');
+      else setPastEvents(data || []);
+    } catch (e: any) {
+      showToast('Error: ' + e.message, 'error');
+    } finally {
+      setLoadingPastEvents(false);
+    }
+  };
+
+  const fetchSupabaseCounts = async () => {
+    try {
+      const [mem, proj, past] = await Promise.all([
+        supabase.from('club_members').select('id', { count: 'exact', head: true }),
+        supabase.from('club_projects').select('id', { count: 'exact', head: true }),
+        supabase.from('past_events').select('id', { count: 'exact', head: true }),
+      ]);
+      setSupabaseCounts({
+        members: mem.count ?? 0,
+        projects: proj.count ?? 0,
+        pastEvents: past.count ?? 0,
+      });
+    } catch (e) {
+      // non-critical
+    }
+  };
+
+  const handlePastEventSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const isEdit = !!editingPastEvent;
+      const payload = {
+        title: pastEventForm.title.trim(),
+        description: pastEventForm.description.trim(),
+        category: pastEventForm.category,
+        date_label: pastEventForm.date_label.trim(),
+        image_url: pastEventForm.image_url.trim() || null,
+        speaker: pastEventForm.speaker.trim() || null,
+        participants: pastEventForm.participants !== '' ? Number(pastEventForm.participants) : null,
+        sort_order: Number(pastEventForm.sort_order || 0),
+      };
+      let error;
+      if (isEdit) {
+        const { error: err } = await supabase.from('past_events').update(payload).eq('id', editingPastEvent.id);
+        error = err;
+      } else {
+        const { error: err } = await supabase.from('past_events').insert([payload]);
+        error = err;
+      }
+      if (error) throw new Error(error.message);
+      showToast(isEdit ? 'Past event updated!' : 'Past event added!', 'success');
+      setIsPastEventModalOpen(false);
+      setEditingPastEvent(null);
+      setPastEventForm({ title: '', description: '', category: 'workshop', date_label: '', image_url: '', speaker: '', participants: '', sort_order: 0 });
+      fetchPastEvents();
+      fetchSupabaseCounts();
+    } catch (err: any) {
+      showToast(err.message || 'Error saving past event', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openEditPastEvent = (pe: any) => {
+    setEditingPastEvent(pe);
+    setPastEventForm({
+      title: pe.title || '',
+      description: pe.description || '',
+      category: pe.category || 'workshop',
+      date_label: pe.date_label || '',
+      image_url: pe.image_url || '',
+      speaker: pe.speaker || '',
+      participants: pe.participants ?? '',
+      sort_order: pe.sort_order ?? 0,
+    });
+    setIsPastEventModalOpen(true);
+  };
+
+  const handleDeletePastEvent = (id: number) => {
+    openConfirm(
+      'Delete Past Event',
+      'Remove this archived event permanently?',
+      async () => {
+        const { error } = await supabase.from('past_events').delete().eq('id', id);
+        if (!error) { showToast('Past event deleted.', 'success'); fetchPastEvents(); fetchSupabaseCounts(); }
+        else showToast('Error: ' + error.message, 'error');
+      },
+      true
+    );
+  };
+
   useEffect(() => {
     if (activeTab === 'registrations' && selectedEventId) {
       fetchRegistrations(selectedEventId);
     } else if (activeTab === 'dashboard') {
       fetchDashboardMetrics();
+      fetchSupabaseCounts();
     } else if (activeTab === 'formBuilder' && builderEventId) {
       fetchFormFields(builderEventId);
     } else if (activeTab === 'manageEvents') {
@@ -847,6 +964,8 @@ const Admin = () => {
       fetchAdminMembers();
     } else if (activeTab === 'manageProjects') {
       fetchAdminProjects();
+    } else if (activeTab === 'pastEvents') {
+      fetchPastEvents();
     }
   }, [activeTab, selectedEventId, builderEventId]);
 
@@ -1069,64 +1188,47 @@ const Admin = () => {
           </h1>
 
           {/* Metrics summary cards */}
-          {metrics ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-              {[
-                { label: 'Total Events', val: metrics.total_events, icon: <Calendar className="text-blue-400" /> },
-                { label: 'Total Registrations', val: metrics.total_registrations, icon: <Users className="text-green-400" /> },
-                { label: 'Active Events', val: metrics.active_events, icon: <Award className="text-yellow-400" /> },
-                { label: 'Upcoming Events', val: metrics.upcoming_events, icon: <Clipboard className="text-pink-400" /> },
-                { label: 'Completed Events', val: metrics.completed_events, icon: <Settings className="text-purple-400" /> },
-              ].map((card, i) => (
-                <div key={i} className="glass-card p-4 rounded-xl border border-border flex items-center justify-between gap-2">
-                  <div>
-                    <span className="text-[10px] text-muted-foreground tracking-wider uppercase font-mono">{card.label}</span>
-                    <h3 className="font-display font-bold text-2xl text-foreground mt-1">{card.val}</h3>
-                  </div>
-                  <div className="p-2 rounded-lg bg-secondary">{card.icon}</div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 mb-8">
+            {[
+              { label: 'Total Events', val: metrics?.total_events ?? '—', icon: <Calendar className="text-blue-400" size={18} />, loading: loadingMetrics },
+              { label: 'Registrations', val: metrics?.total_registrations ?? '—', icon: <Users className="text-green-400" size={18} />, loading: loadingMetrics },
+              { label: 'Active Events', val: metrics?.active_events ?? '—', icon: <Award className="text-yellow-400" size={18} />, loading: loadingMetrics },
+              { label: 'Upcoming', val: metrics?.upcoming_events ?? '—', icon: <Clipboard className="text-pink-400" size={18} />, loading: loadingMetrics },
+              { label: 'Past Events', val: supabaseCounts.pastEvents, icon: <Archive className="text-orange-400" size={18} />, loading: false },
+              { label: 'Members', val: supabaseCounts.members, icon: <Users className="text-teal-400" size={18} />, loading: false },
+              { label: 'Projects', val: supabaseCounts.projects, icon: <Settings className="text-purple-400" size={18} />, loading: false },
+            ].map((card, i) => (
+              <div key={i} className={`glass-card p-4 rounded-xl border border-border flex items-center justify-between gap-2 ${card.loading ? 'animate-pulse' : ''}`}>
+                <div>
+                  <span className="text-[9px] text-muted-foreground tracking-wider uppercase font-mono leading-none">{card.label}</span>
+                  <h3 className="font-display font-bold text-xl text-foreground mt-1">{card.loading ? <span className="opacity-40">...</span> : card.val}</h3>
                 </div>
-              ))}
-            </div>
-          ) : (
-            loadingMetrics && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="glass-card p-4 rounded-xl border border-border flex items-center justify-between gap-2 animate-pulse">
-                    <div className="space-y-2">
-                      <div className="h-3 w-20 bg-secondary rounded"></div>
-                      <div className="h-6 w-12 bg-secondary rounded mt-1"></div>
-                    </div>
-                    <div className="p-4 rounded-lg bg-secondary/80 h-10 w-10"></div>
-                  </div>
-                ))}
+                <div className="p-2 rounded-lg bg-secondary shrink-0">{card.icon}</div>
               </div>
-            )
-          )}
+            ))}
+          </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 border-b border-border mb-8 overflow-x-auto">
-            {['dashboard', 'registrations', 'createEvent', 'formBuilder', 'manageEvents', 'manageMembers', 'manageProjects'].map((tab) => (
+          <div className="flex gap-1 border-b border-border mb-8 overflow-x-auto pb-0">
+            {([
+              { key: 'dashboard', label: 'Overview' },
+              { key: 'registrations', label: 'Registrations' },
+              { key: 'createEvent', label: 'Create Event' },
+              { key: 'formBuilder', label: 'Form Builder' },
+              { key: 'manageEvents', label: 'Manage Events' },
+              { key: 'manageMembers', label: 'Members' },
+              { key: 'manageProjects', label: 'Projects' },
+              { key: 'pastEvents', label: 'Past Events Archive' },
+            ] as { key: string; label: string }[]).map((tab) => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab as any)}
-                className={`relative px-5 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
-                  activeTab === tab ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key as any)}
+                className={`relative px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors rounded-t-lg ${
+                  activeTab === tab.key ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {tab === 'dashboard' 
-                  ? 'Overview' 
-                  : tab === 'registrations' 
-                  ? 'Event Registrations' 
-                  : tab === 'createEvent' 
-                  ? 'Create Event' 
-                  : tab === 'formBuilder' 
-                  ? 'Form Builder' 
-                  : tab === 'manageEvents' 
-                  ? 'Manage Events' 
-                  : tab === 'manageMembers' 
-                  ? 'Manage Members' 
-                  : 'Manage Projects'}
-                {activeTab === tab && (
+                {tab.label}
+                {activeTab === tab.key && (
                   <motion.div
                     layoutId="admin-tab-indicator"
                     className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
@@ -1910,6 +2012,80 @@ const Admin = () => {
                   )}
                 </motion.div>
               )}
+
+              {/* PAST EVENTS ARCHIVE TAB */}
+              {activeTab === 'pastEvents' && (
+                <motion.div key="pastEvents" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h2 className="text-xl font-bold font-display text-foreground flex items-center gap-2">
+                        <Archive size={20} className="text-primary" /> Past Events Archive
+                      </h2>
+                      <p className="text-xs text-muted-foreground mt-1">Events shown on the public website archive page (no registration data).</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditingPastEvent(null);
+                        setPastEventForm({ title: '', description: '', category: 'workshop', date_label: '', image_url: '', speaker: '', participants: '', sort_order: 0 });
+                        setIsPastEventModalOpen(true);
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-xs font-semibold rounded-lg hover:bg-primary/95 transition-colors"
+                    >
+                      <Plus size={14} /> Add Past Event
+                    </button>
+                  </div>
+
+                  {loadingPastEvents ? (
+                    <div className="flex justify-center py-16"><Loader2 className="animate-spin text-primary" size={32} /></div>
+                  ) : pastEvents.length === 0 ? (
+                    <div className="text-center py-16 border border-dashed border-border rounded-2xl">
+                      <Archive size={36} className="text-muted-foreground/30 mx-auto mb-4" />
+                      <p className="text-muted-foreground text-sm">No past events yet.</p>
+                      <p className="text-muted-foreground/60 text-xs mt-1">Add archived events to display them on the public website.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {pastEvents.map((pe: any) => {
+                        return (
+                          <div key={pe.id} className="bg-secondary/20 border border-border rounded-2xl overflow-hidden hover:border-primary/30 transition-colors group">
+                            {pe.image_url && (
+                              <div className="h-36 overflow-hidden">
+                                <img src={pe.image_url} alt={pe.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                              </div>
+                            )}
+                            <div className="p-4">
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="font-semibold text-foreground text-sm leading-snug">{pe.title}</h3>
+                                    <span className="text-[10px] text-muted-foreground font-mono bg-secondary px-1.5 py-0.5 rounded">Order: {pe.sort_order}</span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {pe.date_label} · <span className="capitalize">{pe.category}</span>
+                                    {pe.participants ? ` · ${pe.participants}+ participants` : ''}
+                                  </p>
+                                </div>
+                                <div className="flex gap-1 shrink-0">
+                                  <button onClick={() => openEditPastEvent(pe)} className="p-1.5 text-muted-foreground hover:text-primary rounded-lg hover:bg-primary/10 transition-colors" title="Edit">
+                                    <Edit size={13} />
+                                  </button>
+                                  <button onClick={() => handleDeletePastEvent(pe.id)} className="p-1.5 text-muted-foreground hover:text-destructive rounded-lg hover:bg-destructive/10 transition-colors" title="Delete">
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              </div>
+                              {pe.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{pe.description}</p>}
+                              {pe.speaker && (
+                                <p className="text-[11px] text-primary/80 font-mono mt-1">Speaker: {pe.speaker}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </motion.div>
+              )}
             </AnimatePresence>
           </div>
         </motion.div>
@@ -2256,6 +2432,154 @@ const Admin = () => {
                   >
                     {isSubmitting && <Loader2 size={12} className="animate-spin" />}
                     {isSubmitting ? 'Saving...' : 'Save Project'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Past Event Modal Overlay */}
+      <AnimatePresence>
+        {isPastEventModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsPastEventModalOpen(false)}
+              className="fixed inset-0 bg-background/80 backdrop-blur-sm"
+            />
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative w-full max-w-lg rounded-2xl bg-card border border-border p-6 shadow-2xl z-10 max-h-[90vh] overflow-y-auto text-left"
+              style={{ background: 'linear-gradient(135deg, hsl(217 91% 60% / 0.04), hsl(217 91% 60% / 0.01))' }}
+            >
+              <h3 className="font-display font-extrabold text-foreground text-lg mb-2">
+                {editingPastEvent ? 'Edit Past Event' : 'Add New Past Event'}
+              </h3>
+              <p className="text-xs text-muted-foreground mb-6">
+                Configure details for the archived past event to display on the public page.
+              </p>
+
+              <form onSubmit={handlePastEventSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Event Title</label>
+                  <input
+                    type="text"
+                    required
+                    value={pastEventForm.title}
+                    onChange={(e) => setPastEventForm({ ...pastEventForm, title: e.target.value })}
+                    className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                    placeholder="e.g. Intro to Neural Networks"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Category</label>
+                    <select
+                      value={pastEventForm.category}
+                      onChange={(e) => setPastEventForm({ ...pastEventForm, category: e.target.value })}
+                      className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                    >
+                      <option value="workshop">Workshop</option>
+                      <option value="hackathon">Hackathon</option>
+                      <option value="competition">Competition</option>
+                      <option value="talk">Guest Lecture / Talk</option>
+                      <option value="seminar">Seminar / Webinar</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Event Date (Label)</label>
+                    <input
+                      type="text"
+                      required
+                      value={pastEventForm.date_label}
+                      onChange={(e) => setPastEventForm({ ...pastEventForm, date_label: e.target.value })}
+                      className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                      placeholder="e.g. October 15, 2025"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Image URL</label>
+                  <input
+                    type="text"
+                    value={pastEventForm.image_url}
+                    onChange={(e) => setPastEventForm({ ...pastEventForm, image_url: e.target.value })}
+                    className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                    placeholder="e.g. https://images.unsplash.com/..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-1">
+                    <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Participants</label>
+                    <input
+                      type="number"
+                      value={pastEventForm.participants}
+                      onChange={(e) => setPastEventForm({ ...pastEventForm, participants: e.target.value })}
+                      className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                      placeholder="e.g. 150"
+                    />
+                  </div>
+                  <div className="col-span-1">
+                    <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Sort Order</label>
+                    <input
+                      type="number"
+                      value={pastEventForm.sort_order}
+                      onChange={(e) => setPastEventForm({ ...pastEventForm, sort_order: Number(e.target.value) })}
+                      className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="col-span-1">
+                    <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Speaker (Optional)</label>
+                    <input
+                      type="text"
+                      value={pastEventForm.speaker}
+                      onChange={(e) => setPastEventForm({ ...pastEventForm, speaker: e.target.value })}
+                      className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                      placeholder="e.g. Dr. Jane Doe"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Description</label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={pastEventForm.description}
+                    onChange={(e) => setPastEventForm({ ...pastEventForm, description: e.target.value })}
+                    className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors resize-none"
+                    placeholder="Describe the past event in detail..."
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsPastEventModalOpen(false)}
+                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 transition-all flex items-center gap-1.5"
+                  >
+                    {isSubmitting && <Loader2 size={12} className="animate-spin" />}
+                    {isSubmitting ? 'Saving...' : 'Save Past Event'}
                   </button>
                 </div>
               </form>
