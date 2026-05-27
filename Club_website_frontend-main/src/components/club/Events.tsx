@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Upload, Users, User, ArrowRight, Loader2 } from 'lucide-react';
+import { X, Upload, Users, ArrowRight, Loader2, CalendarDays, Mic, UsersRound } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 interface EventModel {
   id: number;
@@ -35,11 +36,27 @@ interface FormFieldModel {
   file_allowed_types: string | null;
 }
 
+interface PastEvent {
+  id: number;
+  title: string;
+  date_label: string;
+  category: string;
+  description: string;
+  speaker: string | null;
+  participants: number | null;
+  image_url: string | null;
+  sort_order: number;
+}
+
 export default function Events() {
   const [activeTab, setActiveTab] = useState('upcoming');
   const [events, setEvents] = useState<EventModel[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [timeLeft, setTimeLeft] = useState({ d: '00', h: '00', m: '00', s: '00' });
+
+  // Past Events state
+  const [pastEvents, setPastEvents] = useState<PastEvent[]>([]);
+  const [loadingPastEvents, setLoadingPastEvents] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<EventModel | null>(null);
   
   // Dynamic Form schema state
@@ -106,9 +123,24 @@ export default function Events() {
     }
   };
 
+  // Fetch past events from Supabase
   useEffect(() => {
+    const fetchPastEvents = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('past_events')
+          .select('*')
+          .order('sort_order', { ascending: false });
+        if (!error && data) setPastEvents(data);
+      } catch (e) {
+        console.error('Failed to fetch past events', e);
+      } finally {
+        setLoadingPastEvents(false);
+      }
+    };
     fetchEvents();
     fetchUserData();
+    fetchPastEvents();
   }, []);
 
   const featured = events.find(ev => ev.status === 'registration_open') || events[0];
@@ -527,6 +559,111 @@ export default function Events() {
             </AnimatePresence>
           </div>
         )}
+
+        {/* ── Past Events Section ──────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="mt-24"
+        >
+          <div className="flex items-center gap-3 mb-2">
+            <span className="w-8 h-px bg-primary/50" />
+            <p className="section-label" style={{ marginBottom: 0 }}>Past Events</p>
+          </div>
+          <h3 className="font-display font-extrabold text-foreground mb-10" style={{ fontSize: 'clamp(22px, 3vw, 34px)' }}>
+            Events Archive
+          </h3>
+
+          {loadingPastEvents ? (
+            <div className="flex justify-center py-12"><Loader2 className="animate-spin text-primary" size={28} /></div>
+          ) : pastEvents.length === 0 ? (
+            <p className="text-muted-foreground text-center py-10">No past events found.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {pastEvents.map((evt, i) => (
+                <motion.div
+                  key={evt.id}
+                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                  whileInView={{ opacity: 1, y: 0, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.07, duration: 0.4 }}
+                  whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                  className="relative overflow-hidden rounded-2xl flex flex-col"
+                  style={{
+                    background: 'linear-gradient(145deg, hsl(217 30% 12%), hsl(217 20% 9%))',
+                    border: '1px solid hsl(217 30% 20%)',
+                    boxShadow: '0 4px 24px hsl(217 91% 60% / 0.05)',
+                  }}
+                >
+                  {/* Top color strip by category */}
+                  <div
+                    className="h-1 w-full"
+                    style={{
+                      background: evt.category.toLowerCase().includes('competition') || evt.category.toLowerCase().includes('hackathon')
+                        ? 'linear-gradient(90deg, hsl(340 90% 55%), hsl(20 90% 55%))'
+                        : evt.category.toLowerCase().includes('speaker')
+                        ? 'linear-gradient(90deg, hsl(260 90% 65%), hsl(217 91% 60%))'
+                        : 'linear-gradient(90deg, hsl(160 90% 43%), hsl(217 91% 60%))',
+                    }}
+                  />
+
+                  <div className="p-6 flex flex-col flex-1">
+                    {/* Image placeholder */}
+                    {evt.image_url ? (
+                      <img src={evt.image_url} alt={evt.title} className="w-full h-36 object-cover rounded-lg mb-4" />
+                    ) : (
+                      <div
+                        className="w-full h-32 rounded-lg mb-4 flex items-center justify-center text-2xl font-bold text-primary/20 select-none"
+                        style={{ background: 'hsl(217 30% 15%)' }}
+                      >
+                        {evt.title.charAt(0)}
+                      </div>
+                    )}
+
+                    {/* Category badge */}
+                    <span className="font-mono text-[10px] tracking-widest uppercase px-2.5 py-1 rounded-full w-fit"
+                      style={{ background: 'hsl(217 91% 60% / 0.12)', color: 'hsl(217 91% 70%)', border: '1px solid hsl(217 91% 60% / 0.2)' }}
+                    >
+                      {evt.category}
+                    </span>
+
+                    {/* Title */}
+                    <h4 className="font-display font-bold text-base text-foreground mt-3 mb-2 leading-snug">
+                      {evt.title}
+                    </h4>
+
+                    {/* Description */}
+                    <p className="text-xs text-muted-foreground leading-relaxed flex-1">
+                      {evt.description}
+                    </p>
+
+                    {/* Meta info */}
+                    <div className="mt-4 pt-4 border-t border-border/50 flex flex-col gap-1.5">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <CalendarDays size={12} className="text-primary/60" />
+                        <span>{evt.date_label}</span>
+                      </div>
+                      {evt.speaker && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Mic size={12} className="text-primary/60" />
+                          <span>{evt.speaker}</span>
+                        </div>
+                      )}
+                      {evt.participants && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <UsersRound size={12} className="text-primary/60" />
+                          <span>{evt.participants}+ participants</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </motion.div>
       </motion.div>
 
       {/* Registration Modal Overlay */}
