@@ -27,7 +27,7 @@ interface EventModel {
 }
 
 const Admin = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'createEvent' | 'formBuilder' | 'manageEvents'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'registrations' | 'createEvent' | 'formBuilder' | 'manageEvents' | 'manageMembers' | 'manageProjects'>('dashboard');
 
   // Auth & Admin Guard State
   const [authState, setAuthState] = useState<{
@@ -132,6 +132,37 @@ const Admin = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [regSearch, setRegSearch] = useState('');
+
+  // Members & Projects State
+  const [adminMembers, setAdminMembers] = useState<any[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [adminProjects, setAdminProjects] = useState<any[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+
+  // Modals / Editor States for Members
+  const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<any>(null);
+  const [memberForm, setMemberForm] = useState({
+    name: '',
+    role: 'Member',
+    photo: '',
+    description: '',
+    github: '',
+    linkedin: '',
+    order_no: 0
+  });
+
+  // Modals / Editor States for Projects
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<any>(null);
+  const [projectForm, setProjectForm] = useState({
+    title: '',
+    author: '',
+    author_id: '' as string | number,
+    description: '',
+    tags: '',
+    github_link: ''
+  });
 
 
   // Create Event Form State (Matching Backend ClubEvent constraints)
@@ -554,6 +585,226 @@ const Admin = () => {
     }
   };
 
+  // ── Member Management Handlers ─────────────────────────────────────────────
+  const fetchAdminMembers = async () => {
+    setLoadingMembers(true);
+    try {
+      const res = await fetch(getApiUrl('/api/members'));
+      if (res.ok) {
+        const data = await res.json();
+        setAdminMembers(data || []);
+      } else {
+        showToast('Failed to fetch members list.', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Error loading members.', 'error');
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
+
+  const handleMemberSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const isEdit = !!editingMember;
+      const url = isEdit
+        ? getApiUrl(`/api/admin/members/${editingMember.id}`)
+        : getApiUrl('/api/admin/members');
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(memberForm),
+        credentials: 'include'
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || 'Failed to save member.');
+      }
+
+      showToast(isEdit ? 'Member updated successfully!' : 'Member added successfully!', 'success');
+      setIsMemberModalOpen(false);
+      setEditingMember(null);
+      setMemberForm({
+        name: '',
+        role: 'Member',
+        photo: '',
+        description: '',
+        github: '',
+        linkedin: '',
+        order_no: 0
+      });
+      fetchAdminMembers();
+    } catch (err: any) {
+      showToast(err.message || 'Error saving member', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openEditMember = (member: any) => {
+    setEditingMember(member);
+    setMemberForm({
+      name: member.name || '',
+      role: member.role || 'Member',
+      photo: member.photo || '',
+      description: member.description || '',
+      github: member.github || '',
+      linkedin: member.linkedin || '',
+      order_no: member.order_no || 0
+    });
+    setIsMemberModalOpen(true);
+  };
+
+  const handleDeleteMember = (memberId: number) => {
+    openConfirm(
+      'Delete Member',
+      'Are you sure you want to delete this member? Their project mappings will not be deleted but they will no longer display in the team list.',
+      async () => {
+        try {
+          const res = await fetch(getApiUrl(`/api/admin/members/${memberId}`), {
+            method: 'DELETE',
+            headers: getAuthHeaders(),
+            credentials: 'include'
+          });
+          if (res.ok) {
+            showToast('Member deleted successfully.', 'success');
+            fetchAdminMembers();
+          } else {
+            const data = await res.json();
+            showToast('Deletion failed: ' + (data.detail || 'Server error'), 'error');
+          }
+        } catch (e: any) {
+          showToast('Error: ' + e.message, 'error');
+        }
+      },
+      true
+    );
+  };
+
+  // ── Project Management Handlers ─────────────────────────────────────────────
+  const fetchAdminProjects = async () => {
+    setLoadingProjects(true);
+    try {
+      const res = await fetch(getApiUrl('/api/projects'));
+      if (res.ok) {
+        const data = await res.json();
+        setAdminProjects(data || []);
+      } else {
+        showToast('Failed to fetch projects list.', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Error loading projects.', 'error');
+    } finally {
+      setLoadingProjects(false);
+    }
+  };
+
+  const handleProjectSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const isEdit = !!editingProject;
+      const url = isEdit
+        ? getApiUrl(`/api/admin/projects/${editingProject.id}`)
+        : getApiUrl('/api/admin/projects');
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const tagsList = projectForm.tags
+        .split(',')
+        .map(t => t.trim())
+        .filter(t => t);
+
+      const payload = {
+        title: projectForm.title,
+        author: projectForm.author,
+        author_id: projectForm.author_id === '' ? null : Number(projectForm.author_id),
+        description: projectForm.description,
+        github_link: projectForm.github_link,
+        tags: tagsList
+      };
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload),
+        credentials: 'include'
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || 'Failed to save project.');
+      }
+
+      showToast(isEdit ? 'Project updated successfully!' : 'Project added successfully!', 'success');
+      setIsProjectModalOpen(false);
+      setEditingProject(null);
+      setProjectForm({
+        title: '',
+        author: '',
+        author_id: '',
+        description: '',
+        tags: '',
+        github_link: ''
+      });
+      fetchAdminProjects();
+    } catch (err: any) {
+      showToast(err.message || 'Error saving project', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openEditProject = (proj: any) => {
+    setEditingProject(proj);
+    setProjectForm({
+      title: proj.title || '',
+      author: proj.author || '',
+      author_id: proj.author_id !== null ? proj.author_id : '',
+      description: proj.description || '',
+      tags: Array.isArray(proj.tags) ? proj.tags.join(', ') : '',
+      github_link: proj.github_link || proj.githubLink || ''
+    });
+    setIsProjectModalOpen(true);
+  };
+
+  const handleDeleteProject = (projectId: number) => {
+    openConfirm(
+      'Delete Project',
+      'Are you sure you want to delete this project? This will permanently remove it from the projects page.',
+      async () => {
+        try {
+          const res = await fetch(getApiUrl(`/api/admin/projects/${projectId}`), {
+            method: 'DELETE',
+            headers: getAuthHeaders(),
+            credentials: 'include'
+          });
+          if (res.ok) {
+            showToast('Project deleted successfully.', 'success');
+            fetchAdminProjects();
+          } else {
+            const data = await res.json();
+            showToast('Deletion failed: ' + (data.detail || 'Server error'), 'error');
+          }
+        } catch (e: any) {
+          showToast('Error: ' + e.message, 'error');
+        }
+      },
+      true
+    );
+  };
+
   useEffect(() => {
     if (activeTab === 'registrations' && selectedEventId) {
       fetchRegistrations(selectedEventId);
@@ -563,6 +814,10 @@ const Admin = () => {
       fetchFormFields(builderEventId);
     } else if (activeTab === 'manageEvents') {
       fetchEventsList();
+    } else if (activeTab === 'manageMembers') {
+      fetchAdminMembers();
+    } else if (activeTab === 'manageProjects') {
+      fetchAdminProjects();
     }
   }, [activeTab, selectedEventId, builderEventId]);
 
@@ -821,7 +1076,7 @@ const Admin = () => {
 
           {/* Tabs */}
           <div className="flex gap-2 border-b border-border mb-8 overflow-x-auto">
-            {['dashboard', 'registrations', 'createEvent', 'formBuilder', 'manageEvents'].map((tab) => (
+            {['dashboard', 'registrations', 'createEvent', 'formBuilder', 'manageEvents', 'manageMembers', 'manageProjects'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab as any)}
@@ -829,7 +1084,19 @@ const Admin = () => {
                   activeTab === tab ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {tab === 'dashboard' ? 'Overview' : tab === 'registrations' ? 'Event Registrations' : tab === 'createEvent' ? 'Create Event' : tab === 'formBuilder' ? 'Form Builder' : 'Manage Events'}
+                {tab === 'dashboard' 
+                  ? 'Overview' 
+                  : tab === 'registrations' 
+                  ? 'Event Registrations' 
+                  : tab === 'createEvent' 
+                  ? 'Create Event' 
+                  : tab === 'formBuilder' 
+                  ? 'Form Builder' 
+                  : tab === 'manageEvents' 
+                  ? 'Manage Events' 
+                  : tab === 'manageMembers' 
+                  ? 'Manage Members' 
+                  : 'Manage Projects'}
                 {activeTab === tab && (
                   <motion.div
                     layoutId="admin-tab-indicator"
@@ -1446,6 +1713,174 @@ const Admin = () => {
                   )}
                 </motion.div>
               )}
+
+              {/* MANAGE MEMBERS TAB */}
+              {activeTab === 'manageMembers' && (
+                <motion.div key="manageMembers" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold font-display text-foreground">Manage Members</h2>
+                    <button
+                      onClick={() => {
+                        setEditingMember(null);
+                        setMemberForm({
+                          name: '',
+                          role: 'Member',
+                          photo: '',
+                          description: '',
+                          github: '',
+                          linkedin: '',
+                          order_no: adminMembers.length + 1
+                        });
+                        setIsMemberModalOpen(true);
+                      }}
+                      className="px-4 py-2 bg-primary text-primary-foreground text-xs font-semibold rounded-lg hover:bg-primary/95 transition-colors"
+                    >
+                      Add New Member
+                    </button>
+                  </div>
+
+                  {loadingMembers ? (
+                    <div className="flex justify-center py-12"><Loader2 className="animate-spin text-primary" size={32} /></div>
+                  ) : adminMembers.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-12">No core members found. Click "Add New Member" to add one.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wider">
+                            <th className="p-3 font-medium">Avatar</th>
+                            <th className="p-3 font-medium">Name</th>
+                            <th className="p-3 font-medium">Role</th>
+                            <th className="p-3 font-medium">Links</th>
+                            <th className="p-3 font-medium">Order</th>
+                            <th className="p-3 font-medium text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-sm">
+                          {adminMembers.map((m: any) => (
+                            <tr key={m.id} className="border-b border-border/50 hover:bg-white/5 transition-colors">
+                              <td className="p-3">
+                                {m.photo ? (
+                                  <img src={m.photo} alt={m.name} className="w-8 h-8 rounded-full object-cover" />
+                                ) : (
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center font-bold text-xs text-white">
+                                    {m.name.slice(0, 2).toUpperCase()}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="p-3 font-medium text-foreground">{m.name}</td>
+                              <td className="p-3">
+                                <span className="bg-secondary text-foreground border border-border px-2.5 py-0.5 rounded-full text-xs font-semibold">
+                                  {m.role}
+                                </span>
+                              </td>
+                              <td className="p-3 whitespace-nowrap text-muted-foreground text-xs">
+                                {m.github && <span className="mr-2">GitHub</span>}
+                                {m.linkedin && <span>LinkedIn</span>}
+                              </td>
+                              <td className="p-3 text-muted-foreground">{m.order_no}</td>
+                              <td className="p-3 text-right space-x-2">
+                                <button
+                                  onClick={() => openEditMember(m)}
+                                  className="p-1.5 text-muted-foreground hover:text-primary rounded-lg hover:bg-primary/10 transition-colors inline-flex items-center"
+                                  title="Edit Member"
+                                >
+                                  <Edit size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteMember(m.id)}
+                                  className="p-1.5 text-muted-foreground hover:text-destructive rounded-lg hover:bg-destructive/10 transition-colors inline-flex items-center"
+                                  title="Delete Member"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {/* MANAGE PROJECTS TAB */}
+              {activeTab === 'manageProjects' && (
+                <motion.div key="manageProjects" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold font-display text-foreground">Manage Projects</h2>
+                    <button
+                      onClick={() => {
+                        setEditingProject(null);
+                        setProjectForm({
+                          title: '',
+                          author: '',
+                          author_id: '',
+                          description: '',
+                          tags: 'Machine Learning, Python',
+                          github_link: ''
+                        });
+                        setIsProjectModalOpen(true);
+                      }}
+                      className="px-4 py-2 bg-primary text-primary-foreground text-xs font-semibold rounded-lg hover:bg-primary/95 transition-colors"
+                    >
+                      Add New Project
+                    </button>
+                  </div>
+
+                  {loadingProjects ? (
+                    <div className="flex justify-center py-12"><Loader2 className="animate-spin text-primary" size={32} /></div>
+                  ) : adminProjects.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-12">No projects found. Click "Add New Project" to add one.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-border text-muted-foreground text-xs uppercase tracking-wider">
+                            <th className="p-3 font-medium">Project Title</th>
+                            <th className="p-3 font-medium">Author</th>
+                            <th className="p-3 font-medium">Tags</th>
+                            <th className="p-3 font-medium text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-sm">
+                          {adminProjects.map((p: any) => (
+                            <tr key={p.id} className="border-b border-border/50 hover:bg-white/5 transition-colors">
+                              <td className="p-3 font-medium text-foreground">{p.title}</td>
+                              <td className="p-3 text-muted-foreground">{p.author}</td>
+                              <td className="p-3">
+                                <div className="flex flex-wrap gap-1">
+                                  {p.tags && p.tags.map((tag: string) => (
+                                    <span key={tag} className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] uppercase font-mono">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="p-3 text-right space-x-2">
+                                <button
+                                  onClick={() => openEditProject(p)}
+                                  className="p-1.5 text-muted-foreground hover:text-primary rounded-lg hover:bg-primary/10 transition-colors inline-flex items-center"
+                                  title="Edit Project"
+                                >
+                                  <Edit size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteProject(p.id)}
+                                  className="p-1.5 text-muted-foreground hover:text-destructive rounded-lg hover:bg-destructive/10 transition-colors inline-flex items-center"
+                                  title="Delete Project"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </motion.div>
+              )}
             </AnimatePresence>
           </div>
         </motion.div>
@@ -1535,6 +1970,265 @@ const Admin = () => {
                   {isConfirming ? 'Processing...' : 'Confirm'}
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Member Modal Overlay */}
+      <AnimatePresence>
+        {isMemberModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMemberModalOpen(false)}
+              className="fixed inset-0 bg-background/80 backdrop-blur-sm"
+            />
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative w-full max-w-lg rounded-2xl bg-card border border-border p-6 shadow-2xl z-10 max-h-[90vh] overflow-y-auto text-left"
+              style={{ background: 'linear-gradient(135deg, hsl(217 91% 60% / 0.04), hsl(217 91% 60% / 0.01))' }}
+            >
+              <h3 className="font-display font-extrabold text-foreground text-lg mb-2">
+                {editingMember ? 'Edit Member' : 'Add New Member'}
+              </h3>
+              <p className="text-xs text-muted-foreground mb-6">
+                Configure details for the core AI Club member.
+              </p>
+
+              <form onSubmit={handleMemberSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={memberForm.name}
+                    onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })}
+                    className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                    placeholder="e.g. Parth Agrawal"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Role</label>
+                    <select
+                      value={memberForm.role}
+                      onChange={(e) => setMemberForm({ ...memberForm, role: e.target.value })}
+                      className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                    >
+                      <option value="Convenor">Convenor</option>
+                      <option value="Core Member">Core Member</option>
+                      <option value="Extended Core Member">Extended Core Member</option>
+                      <option value="Member">Member</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Order No</label>
+                    <input
+                      type="number"
+                      required
+                      value={memberForm.order_no}
+                      onChange={(e) => setMemberForm({ ...memberForm, order_no: Number(e.target.value) })}
+                      className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Photo URL</label>
+                  <input
+                    type="text"
+                    value={memberForm.photo}
+                    onChange={(e) => setMemberForm({ ...memberForm, photo: e.target.value })}
+                    className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                    placeholder="e.g. https://drive.google.com/thumbnail?id=..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">GitHub Link</label>
+                    <input
+                      type="text"
+                      value={memberForm.github}
+                      onChange={(e) => setMemberForm({ ...memberForm, github: e.target.value })}
+                      className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                      placeholder="e.g. https://github.com/..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">LinkedIn Link</label>
+                    <input
+                      type="text"
+                      value={memberForm.linkedin}
+                      onChange={(e) => setMemberForm({ ...memberForm, linkedin: e.target.value })}
+                      className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                      placeholder="e.g. https://linkedin.com/in/..."
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Description / Bio</label>
+                  <textarea
+                    rows={3}
+                    value={memberForm.description}
+                    onChange={(e) => setMemberForm({ ...memberForm, description: e.target.value })}
+                    className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors resize-none"
+                    placeholder="Brief description about projects, interests, or background..."
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsMemberModalOpen(false)}
+                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 transition-all flex items-center gap-1.5"
+                  >
+                    {isSubmitting && <Loader2 size={12} className="animate-spin" />}
+                    {isSubmitting ? 'Saving...' : 'Save Member'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Project Modal Overlay */}
+      <AnimatePresence>
+        {isProjectModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsProjectModalOpen(false)}
+              className="fixed inset-0 bg-background/80 backdrop-blur-sm"
+            />
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative w-full max-w-lg rounded-2xl bg-card border border-border p-6 shadow-2xl z-10 max-h-[90vh] overflow-y-auto text-left"
+              style={{ background: 'linear-gradient(135deg, hsl(217 91% 60% / 0.04), hsl(217 91% 60% / 0.01))' }}
+            >
+              <h3 className="font-display font-extrabold text-foreground text-lg mb-2">
+                {editingProject ? 'Edit Project' : 'Add New Project'}
+              </h3>
+              <p className="text-xs text-muted-foreground mb-6">
+                Configure details for the student-made AI Club project.
+              </p>
+
+              <form onSubmit={handleProjectSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Project Title</label>
+                  <input
+                    type="text"
+                    required
+                    value={projectForm.title}
+                    onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })}
+                    className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                    placeholder="e.g. ShelfMind AI"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Author Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={projectForm.author}
+                      onChange={(e) => setProjectForm({ ...projectForm, author: e.target.value })}
+                      className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                      placeholder="e.g. Kush Ashvinbhai Patel"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Linked Member Profile (Optional)</label>
+                    <select
+                      value={projectForm.author_id}
+                      onChange={(e) => setProjectForm({ ...projectForm, author_id: e.target.value })}
+                      className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                    >
+                      <option value="">Not linked</option>
+                      {adminMembers.map(m => (
+                        <option key={m.id} value={m.id}>{m.name} ({m.role})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">GitHub Repository Link</label>
+                  <input
+                    type="text"
+                    required
+                    value={projectForm.github_link}
+                    onChange={(e) => setProjectForm({ ...projectForm, github_link: e.target.value })}
+                    className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                    placeholder="e.g. https://github.com/..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Tags (Comma-separated)</label>
+                  <input
+                    type="text"
+                    value={projectForm.tags}
+                    onChange={(e) => setProjectForm({ ...projectForm, tags: e.target.value })}
+                    className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
+                    placeholder="e.g. Machine Learning, Computer Vision, Python"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">Description</label>
+                  <textarea
+                    rows={4}
+                    required
+                    value={projectForm.description}
+                    onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
+                    className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors resize-none"
+                    placeholder="Describe what the project does, technology stack, metrics, etc..."
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsProjectModalOpen(false)}
+                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/95 transition-all flex items-center gap-1.5"
+                  >
+                    {isSubmitting && <Loader2 size={12} className="animate-spin" />}
+                    {isSubmitting ? 'Saving...' : 'Save Project'}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

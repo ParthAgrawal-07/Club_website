@@ -1,6 +1,6 @@
-import { members, MemberRole } from "../../data/members";
+import { Member, MemberRole } from "../../data/members";
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 
 // Role badge colours
@@ -88,6 +88,30 @@ function MemberAvatar({ name, photo }: { name: string; photo: string }) {
 }
 
 export default function Team() {
+  const [memberList, setMemberList] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const getApiUrl = (path: string) => {
+    return `${import.meta.env.PROD ? '' : 'http://localhost:8000'}${path}`;
+  };
+
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        const res = await fetch(getApiUrl('/api/members'));
+        if (res.ok) {
+          const data = await res.json();
+          setMemberList(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch members", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMembers();
+  }, []);
+
   return (
     <section id="team" className="relative z-[1] max-w-[1200px] mx-auto px-6 md:px-12 py-24">
       <motion.div
@@ -101,67 +125,73 @@ export default function Team() {
           Meet the Team
         </h2>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-          {members.map((m, i) => (
-            <motion.div
-              key={m.id}
-              custom={i}
-              variants={cardVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: '-40px' }}
-              whileHover={{ y: -8, transition: { duration: 0.25 } }}
-              className="glass-card relative overflow-hidden p-6 text-center group cursor-pointer flex flex-col items-center"
-            >
-              {/* Top gradient bar on hover */}
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary to-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        {loading ? (
+          <div className="text-center text-muted-foreground text-sm py-12">Loading team...</div>
+        ) : memberList.length === 0 ? (
+          <div className="text-center text-muted-foreground text-sm py-12">No team members found.</div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+            {memberList.map((m, i) => (
+              <motion.div
+                key={m.id}
+                custom={i}
+                variants={cardVariants}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: '-40px' }}
+                whileHover={{ y: -8, transition: { duration: 0.25 } }}
+                className="glass-card relative overflow-hidden p-6 text-center group cursor-pointer flex flex-col items-center"
+              >
+                {/* Top gradient bar on hover */}
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary to-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-              {/* Avatar — photo or initials */}
-              <MemberAvatar name={m.name} photo={m.photo} />
+                {/* Avatar — photo or initials */}
+                <MemberAvatar name={m.name} photo={m.photo || ''} />
 
-              {/* Name */}
-              <h4 className="font-display font-bold text-sm text-foreground leading-tight">{m.name}</h4>
+                {/* Name */}
+                <h4 className="font-display font-bold text-sm text-foreground leading-tight">{m.name}</h4>
 
-              {/* Role badge */}
-              <RoleBadge role={m.role} />
+                {/* Role badge */}
+                <RoleBadge role={m.role} />
 
-              {/* Social links */}
-              <div className="flex items-center justify-center gap-3 mt-2">
-                {m.github && (
-                  <a
-                    href={m.github}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={(e) => e.stopPropagation()}
-                    aria-label="GitHub"
-                  >
-                    <GitHubIcon />
-                  </a>
+                {/* Social links */}
+                <div className="flex items-center justify-center gap-3 mt-2">
+                  {m.github && (
+                    <a
+                      href={m.github}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label="GitHub"
+                    >
+                      <GitHubIcon />
+                    </a>
+                  )}
+                  {m.linkedin && (
+                    <a
+                      href={m.linkedin}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label="LinkedIn"
+                    >
+                      <LinkedInIcon />
+                    </a>
+                  )}
+                </div>
+
+                {/* Description */}
+                {m.description && (
+                  <p className="text-xs text-muted-foreground mt-3 leading-relaxed line-clamp-3">
+                    {m.description}
+                  </p>
                 )}
-                {m.linkedin && (
-                  <a
-                    href={m.linkedin}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-muted-foreground hover:text-primary transition-colors"
-                    onClick={(e) => e.stopPropagation()}
-                    aria-label="LinkedIn"
-                  >
-                    <LinkedInIcon />
-                  </a>
-                )}
-              </div>
-
-              {/* Description */}
-              {m.description && (
-                <p className="text-xs text-muted-foreground mt-3 leading-relaxed line-clamp-3">
-                  {m.description}
-                </p>
-              )}
-            </motion.div>
-          ))}
-        </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </motion.div>
     </section>
   );

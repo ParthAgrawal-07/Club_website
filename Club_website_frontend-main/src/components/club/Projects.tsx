@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExternalLink } from 'lucide-react';
-import { projects } from '../../data/projects';
+import { Project } from '../../data/projects';
 
 // Map tags from projects.ts to display styles
 const tagStyleMap: Record<string, { tagClass: string; label: string }> = {
@@ -59,8 +59,31 @@ const tabLabels: Record<string, string> = {
 
 export default function Projects() {
   const [activeTab, setActiveTab] = useState('all');
+  const [projectList, setProjectList] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = projects.filter(
+  const getApiUrl = (path: string) => {
+    return `${import.meta.env.PROD ? '' : 'http://localhost:8000'}${path}`;
+  };
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await fetch(getApiUrl('/api/projects'));
+        if (res.ok) {
+          const data = await res.json();
+          setProjectList(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch projects", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProjects();
+  }, []);
+
+  const filtered = projectList.filter(
     (p) => activeTab === 'all' || getCategory(p.tags) === activeTab
   );
 
@@ -99,74 +122,79 @@ export default function Projects() {
           ))}
         </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          <AnimatePresence mode="popLayout">
-            {filtered.map((p, i) => {
-              const { tagClass, label } = getPrimaryTag(p.tags);
-              return (
-                <motion.div
-                  key={p.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0, transition: { delay: i * 0.1, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } }}
-                  exit={{ opacity: 0, scale: 0.9, y: -10, transition: { duration: 0.25 } }}
-                  whileHover={{ y: -6, transition: { duration: 0.25 } }}
-                  className="glass-card relative overflow-hidden p-7 cursor-pointer"
-                >
-                  {/* Primary tag badge */}
-                  <span className={`${tagClass} font-mono text-[10px] tracking-widest uppercase px-3 py-1 rounded`}>
-                    {label}
-                  </span>
+        {loading ? (
+          <div className="text-center text-muted-foreground text-sm py-12">Loading projects...</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <AnimatePresence mode="popLayout">
+              {filtered.map((p, i) => {
+                const { tagClass, label } = getPrimaryTag(p.tags);
+                // Handle both CamelCase and SnakeCase from API/static definitions
+                const gitLink = (p as any).github_link || p.githubLink || '';
+                return (
+                  <motion.div
+                    key={p.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0, transition: { delay: i * 0.1, duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } }}
+                    exit={{ opacity: 0, scale: 0.9, y: -10, transition: { duration: 0.25 } }}
+                    whileHover={{ y: -6, transition: { duration: 0.25 } }}
+                    className="glass-card relative overflow-hidden p-7 cursor-pointer"
+                  >
+                    {/* Primary tag badge */}
+                    <span className={`${tagClass} font-mono text-[10px] tracking-widest uppercase px-3 py-1 rounded`}>
+                      {label}
+                    </span>
 
-                  {/* Title */}
-                  <h4 className="font-display font-bold text-lg text-foreground mt-4 mb-1">{p.title}</h4>
+                    {/* Title */}
+                    <h4 className="font-display font-bold text-lg text-foreground mt-4 mb-1">{p.title}</h4>
 
-                  {/* Author */}
-                  <p className="text-xs text-muted-foreground mb-2">by {p.author}</p>
+                    {/* Author */}
+                    <p className="text-xs text-muted-foreground mb-2">by {p.author}</p>
 
-                  {/* Description */}
-                  <p className="text-sm text-muted-foreground leading-relaxed">{p.description}</p>
+                    {/* Description */}
+                    <p className="text-sm text-muted-foreground leading-relaxed">{p.description}</p>
 
-                  {/* All tags */}
-                  <div className="flex flex-wrap gap-1.5 mt-3">
-                    {p.tags.slice(0, 4).map((tag) => (
-                      <span
-                        key={tag}
-                        className="text-[10px] font-mono text-muted-foreground border border-border rounded px-2 py-0.5"
+                    {/* All tags */}
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      {p.tags.slice(0, 4).map((tag) => (
+                        <span
+                          key={tag}
+                          className="text-[10px] font-mono text-muted-foreground border border-border rounded px-2 py-0.5"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* GitHub link */}
+                    <motion.div className="mt-5" whileHover={{ x: 4 }} transition={{ duration: 0.2 }}>
+                      <a
+                        href={gitLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1.5 text-xs text-primary border border-primary/25 rounded-md px-3 py-1 hover:bg-primary/10 transition-colors"
                       >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* GitHub link */}
-                  <motion.div className="mt-5" whileHover={{ x: 4 }} transition={{ duration: 0.2 }}>
-                    <a
-                      href={p.githubLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center gap-1.5 text-xs text-primary border border-primary/25 rounded-md px-3 py-1 hover:bg-primary/10 transition-colors"
-                    >
-                      <ExternalLink size={12} /> GitHub
-                    </a>
+                        <ExternalLink size={12} /> GitHub
+                      </a>
+                    </motion.div>
                   </motion.div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+                );
+              })}
+            </AnimatePresence>
 
-          {filtered.length === 0 && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-muted-foreground text-sm col-span-full"
-            >
-              No projects in this category yet — stay tuned!
-            </motion.p>
-          )}
-        </div>
+            {filtered.length === 0 && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-muted-foreground text-sm col-span-full"
+              >
+                No projects in this category yet — stay tuned!
+              </motion.p>
+            )}
+          </div>
+        )}
       </motion.div>
     </section>
   );
