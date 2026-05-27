@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExternalLink } from 'lucide-react';
 import { Project } from '../../data/projects';
+import { supabase } from '../../lib/supabase';
 
 // Map tags from projects.ts to display styles
 const tagStyleMap: Record<string, { tagClass: string; label: string }> = {
@@ -62,17 +63,39 @@ export default function Projects() {
   const [projectList, setProjectList] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const getApiUrl = (path: string) => {
-    return `${import.meta.env.PROD ? '' : 'http://localhost:8000'}${path}`;
-  };
-
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const res = await fetch(getApiUrl('/api/projects'));
-        if (res.ok) {
-          const data = await res.json();
-          setProjectList(data);
+        const { data, error } = await supabase
+          .from('club_projects')
+          .select('*')
+          .order('id', { ascending: false });
+
+        if (error) {
+          console.error("Supabase error fetching projects", error);
+        } else if (data) {
+          // Parse tags from database
+          const parsedData = data.map((p: any) => {
+            let tagsList: string[] = [];
+            if (p.tags) {
+              try {
+                const parsed = JSON.parse(p.tags);
+                tagsList = Array.isArray(parsed) ? parsed : [String(parsed)];
+              } catch (e) {
+                tagsList = p.tags.split(',').map((t: string) => t.trim()).filter(Boolean);
+              }
+            }
+            return {
+              id: p.id,
+              title: p.title,
+              author: p.author,
+              authorId: p.author_id,
+              description: p.description,
+              tags: tagsList,
+              githubLink: p.github_link
+            };
+          });
+          setProjectList(parsedData);
         }
       } catch (err) {
         console.error("Failed to fetch projects", err);

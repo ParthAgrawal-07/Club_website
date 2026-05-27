@@ -1,6 +1,7 @@
 import { Member, MemberRole } from "../../data/members";
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
 
 
 // Role badge colours
@@ -28,7 +29,7 @@ const cardVariants = {
     y: 0,
     scale: 1,
     transition: {
-      delay: i * 0.12,
+      delay: i * 0.05,
       duration: 0.5,
       ease: [0.25, 0.46, 0.45, 0.94] as const,
     },
@@ -92,16 +93,16 @@ export default function Team() {
   const [memberList, setMemberList] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const getApiUrl = (path: string) => {
-    return `${import.meta.env.PROD ? '' : 'http://localhost:8000'}${path}`;
-  };
-
   useEffect(() => {
     const fetchMembers = async () => {
       try {
-        const res = await fetch(getApiUrl('/api/members'));
-        if (res.ok) {
-          const data = await res.json();
+        const { data, error } = await supabase
+          .from('club_members')
+          .select('*')
+          .order('order_no', { ascending: true });
+        if (error) {
+          console.error("Supabase error fetching members", error);
+        } else if (data) {
           setMemberList(data);
         }
       } catch (err) {

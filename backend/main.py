@@ -41,8 +41,6 @@ from admin.routes import router as admin_router
 
 # ── Members & Projects module ──────────────────────────────────────────────
 from members.models import ClubMember, ClubProject   # registers tables with Base
-from members.routes import router as members_router
-from members.seeder import seed_members_and_projects
 
 
 load_dotenv()
@@ -86,7 +84,6 @@ app.include_router(events_router)
 app.include_router(forms_router)
 app.include_router(registrations_router)
 app.include_router(admin_router)
-app.include_router(members_router)
 
 
 # ── Startup ────────────────────────────────────────────────────────────────
@@ -112,10 +109,6 @@ async def startup():
     # Auto-create all tables (idempotent).
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        
-    # Seed members and projects
-    async with async_session() as session:
-        await seed_members_and_projects(session)
 
     # Start the keep-alive background task
     asyncio.create_task(keep_alive_task())

@@ -5,6 +5,8 @@ import Navbar from '@/components/club/Navbar';
 import Footer from '@/components/club/Footer';
 import { Loader2, Download, Trash2, Calendar, Users, Award, Clipboard, Settings, Edit, Eye, FileText } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
+import { supabase } from '../lib/supabase';
+
 
 interface EventModel {
   id: number;
@@ -589,16 +591,18 @@ const Admin = () => {
   const fetchAdminMembers = async () => {
     setLoadingMembers(true);
     try {
-      const res = await fetch(getApiUrl('/api/members'));
-      if (res.ok) {
-        const data = await res.json();
-        setAdminMembers(data || []);
+      const { data, error } = await supabase
+        .from('club_members')
+        .select('*')
+        .order('order_no', { ascending: true });
+      if (error) {
+        showToast('Failed to fetch members list: ' + error.message, 'error');
       } else {
-        showToast('Failed to fetch members list.', 'error');
+        setAdminMembers(data || []);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      showToast('Error loading members.', 'error');
+      showToast('Error loading members: ' + e.message, 'error');
     } finally {
       setLoadingMembers(false);
     }
@@ -609,24 +613,23 @@ const Admin = () => {
     setIsSubmitting(true);
     try {
       const isEdit = !!editingMember;
-      const url = isEdit
-        ? getApiUrl(`/api/admin/members/${editingMember.id}`)
-        : getApiUrl('/api/admin/members');
-      const method = isEdit ? 'PUT' : 'POST';
+      
+      let error;
+      if (isEdit) {
+        const { error: err } = await supabase
+          .from('club_members')
+          .update(memberForm)
+          .eq('id', editingMember.id);
+        error = err;
+      } else {
+        const { error: err } = await supabase
+          .from('club_members')
+          .insert([memberForm]);
+        error = err;
+      }
 
-      const res = await fetch(url, {
-        method,
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(memberForm),
-        credentials: 'include'
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || 'Failed to save member.');
+      if (error) {
+        throw new Error(error.message);
       }
 
       showToast(isEdit ? 'Member updated successfully!' : 'Member added successfully!', 'success');
@@ -669,17 +672,15 @@ const Admin = () => {
       'Are you sure you want to delete this member? Their project mappings will not be deleted but they will no longer display in the team list.',
       async () => {
         try {
-          const res = await fetch(getApiUrl(`/api/admin/members/${memberId}`), {
-            method: 'DELETE',
-            headers: getAuthHeaders(),
-            credentials: 'include'
-          });
-          if (res.ok) {
+          const { error } = await supabase
+            .from('club_members')
+            .delete()
+            .eq('id', memberId);
+          if (!error) {
             showToast('Member deleted successfully.', 'success');
             fetchAdminMembers();
           } else {
-            const data = await res.json();
-            showToast('Deletion failed: ' + (data.detail || 'Server error'), 'error');
+            showToast('Deletion failed: ' + error.message, 'error');
           }
         } catch (e: any) {
           showToast('Error: ' + e.message, 'error');
@@ -693,16 +694,36 @@ const Admin = () => {
   const fetchAdminProjects = async () => {
     setLoadingProjects(true);
     try {
-      const res = await fetch(getApiUrl('/api/projects'));
-      if (res.ok) {
-        const data = await res.json();
-        setAdminProjects(data || []);
+      const { data, error } = await supabase
+        .from('club_projects')
+        .select('*')
+        .order('id', { ascending: false });
+      if (error) {
+        showToast('Failed to fetch projects list: ' + error.message, 'error');
       } else {
-        showToast('Failed to fetch projects list.', 'error');
+        // Parse tags if stored as JSON strings
+        const parsedData = (data || []).map((p: any) => {
+          let tagsList = [];
+          if (p.tags) {
+            try {
+              tagsList = JSON.parse(p.tags);
+              if (!Array.isArray(tagsList)) {
+                tagsList = [String(tagsList)];
+              }
+            } catch (e) {
+              tagsList = p.tags.split(',').map((t: any) => t.trim()).filter(Boolean);
+            }
+          }
+          return {
+            ...p,
+            tags: tagsList
+          };
+        });
+        setAdminProjects(parsedData);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      showToast('Error loading projects.', 'error');
+      showToast('Error loading projects: ' + e.message, 'error');
     } finally {
       setLoadingProjects(false);
     }
@@ -713,10 +734,6 @@ const Admin = () => {
     setIsSubmitting(true);
     try {
       const isEdit = !!editingProject;
-      const url = isEdit
-        ? getApiUrl(`/api/admin/projects/${editingProject.id}`)
-        : getApiUrl('/api/admin/projects');
-      const method = isEdit ? 'PUT' : 'POST';
 
       const tagsList = projectForm.tags
         .split(',')
@@ -729,22 +746,25 @@ const Admin = () => {
         author_id: projectForm.author_id === '' ? null : Number(projectForm.author_id),
         description: projectForm.description,
         github_link: projectForm.github_link,
-        tags: tagsList
+        tags: JSON.stringify(tagsList)
       };
 
-      const res = await fetch(url, {
-        method,
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload),
-        credentials: 'include'
-      });
+      let error;
+      if (isEdit) {
+        const { error: err } = await supabase
+          .from('club_projects')
+          .update(payload)
+          .eq('id', editingProject.id);
+        error = err;
+      } else {
+        const { error: err } = await supabase
+          .from('club_projects')
+          .insert([payload]);
+        error = err;
+      }
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || 'Failed to save project.');
+      if (error) {
+        throw new Error(error.message);
       }
 
       showToast(isEdit ? 'Project updated successfully!' : 'Project added successfully!', 'success');
@@ -785,17 +805,15 @@ const Admin = () => {
       'Are you sure you want to delete this project? This will permanently remove it from the projects page.',
       async () => {
         try {
-          const res = await fetch(getApiUrl(`/api/admin/projects/${projectId}`), {
-            method: 'DELETE',
-            headers: getAuthHeaders(),
-            credentials: 'include'
-          });
-          if (res.ok) {
+          const { error } = await supabase
+            .from('club_projects')
+            .delete()
+            .eq('id', projectId);
+          if (!error) {
             showToast('Project deleted successfully.', 'success');
             fetchAdminProjects();
           } else {
-            const data = await res.json();
-            showToast('Deletion failed: ' + (data.detail || 'Server error'), 'error');
+            showToast('Deletion failed: ' + error.message, 'error');
           }
         } catch (e: any) {
           showToast('Error: ' + e.message, 'error');
