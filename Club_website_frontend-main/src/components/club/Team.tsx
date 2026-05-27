@@ -89,6 +89,15 @@ function MemberAvatar({ name, photo }: { name: string; photo: string }) {
   );
 }
 
+// Role display order — Convenor first, Members last
+const ROLE_ORDER: Record<string, number> = {
+  'Convenor':             1,
+  'Deputy Convenor':      2,
+  'Core Member':          3,
+  'Extended Core Member': 4,
+  'Member':               5,
+};
+
 export default function Team() {
   const [memberList, setMemberList] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,12 +107,19 @@ export default function Team() {
       try {
         const { data, error } = await supabase
           .from('club_members')
-          .select('*')
-          .order('order_no', { ascending: true });
+          .select('*');
         if (error) {
           console.error("Supabase error fetching members", error);
         } else if (data) {
-          setMemberList(data);
+          // Sort automatically by role hierarchy
+          const sorted = [...data].sort((a, b) => {
+            const roleA = ROLE_ORDER[a.role] ?? 99;
+            const roleB = ROLE_ORDER[b.role] ?? 99;
+            if (roleA !== roleB) return roleA - roleB;
+            // Within same role, sort alphabetically by name
+            return a.name.localeCompare(b.name);
+          });
+          setMemberList(sorted);
         }
       } catch (err) {
         console.error("Failed to fetch members", err);

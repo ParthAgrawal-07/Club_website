@@ -588,17 +588,28 @@ const Admin = () => {
   };
 
   // ── Member Management Handlers ─────────────────────────────────────────────
+  const MEMBER_ROLE_ORDER: Record<string, number> = {
+    'Convenor': 1, 'Deputy Convenor': 2,
+    'Core Member': 3, 'Extended Core Member': 4, 'Member': 5
+  };
+
   const fetchAdminMembers = async () => {
     setLoadingMembers(true);
     try {
       const { data, error } = await supabase
         .from('club_members')
-        .select('*')
-        .order('order_no', { ascending: true });
+        .select('*');
       if (error) {
         showToast('Failed to fetch members list: ' + error.message, 'error');
       } else {
-        setAdminMembers(data || []);
+        // Sort by role hierarchy automatically
+        const sorted = [...(data || [])].sort((a, b) => {
+          const rA = MEMBER_ROLE_ORDER[a.role] ?? 99;
+          const rB = MEMBER_ROLE_ORDER[b.role] ?? 99;
+          if (rA !== rB) return rA - rB;
+          return a.name.localeCompare(b.name);
+        });
+        setAdminMembers(sorted);
       }
     } catch (e: any) {
       console.error(e);
