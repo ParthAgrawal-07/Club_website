@@ -6,7 +6,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
-import KaggleRegister from "./pages/KaggleRegister.tsx";
 import Admin from "./pages/Admin.tsx";
 
 const queryClient = new QueryClient();
@@ -21,7 +20,6 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/kaggle-register" element={<KaggleRegister />} />
             <Route path="/admin" element={<Admin />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

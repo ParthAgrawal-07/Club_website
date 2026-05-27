@@ -53,7 +53,7 @@ def _models():
         EventRegistration, RegistrationResponse,
         Team, TeamMember, UploadedFile,
     )
-    from main import User
+    from auth.models import User
     return (
         ClubEvent, FormField, FormTemplate,
         EventRegistration, RegistrationResponse,
@@ -110,7 +110,7 @@ async def recent_registrations(session: AsyncSession, limit: int = 5) -> List[Di
     Used to populate the 'recent activity' section of the dashboard.
     """
     (ClubEvent, _, __, EventRegistration, *___) = _models()[:9]
-    from main import User  # noqa: PLC0415
+    from auth.models import User  # noqa: PLC0415
 
     rows = await session.execute(
         select(
@@ -168,7 +168,7 @@ async def search_registrations(
         (list_of_dicts, total_count)
     """
     (ClubEvent, _, __, EventRegistration, *___) = _models()[:9]
-    from main import User  # noqa: PLC0415
+    from auth.models import User  # noqa: PLC0415
 
     limit = min(limit, 100)
     offset = (page - 1) * limit

@@ -1,9 +1,11 @@
 import { motion } from 'framer-motion';
-import { Rocket, Settings } from 'lucide-react';
+import { BookOpen, Cpu, Layers, Network } from 'lucide-react';
 
 const resources = [
-  { icon: <Rocket size={20} />, title: 'Machine Learning Foundations', sub: 'From PyTorch to deployment pipelines.', color: 'bg-primary/15 text-primary' },
-  { icon: <Settings size={20} />, title: 'Embedded Systems Toolkit', sub: 'Guides for MATLAB, Keil, and ESP8266.', color: 'bg-accent/15 text-accent' },
+  { icon: <BookOpen size={20} />, title: 'Python & Data Science foundations', sub: 'Learn NumPy, Pandas, Matplotlib, and EDA basics.', color: 'bg-blue-500/10 text-blue-400 border border-blue-500/20' },
+  { icon: <Layers size={20} />, title: 'Machine Learning & Deep Learning', sub: 'From regression fundamentals to PyTorch training loops.', color: 'bg-violet-500/10 text-violet-400 border border-violet-500/20' },
+  { icon: <Cpu size={20} />, title: 'Computer Vision & NLP Pipelines', sub: 'Build object detection (YOLO), OpenCV apps, and BERT classification.', color: 'bg-pink-500/10 text-pink-400 border border-pink-500/20' },
+  { icon: <Network size={20} />, title: 'Generative AI & LLM Systems', sub: 'Explore prompt engineering, RAG pipelines, and agentic workflows.', color: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' },
 ];
 
 export default function Resources() {
@@ -15,16 +17,16 @@ export default function Resources() {
           Learning Resources
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {resources.map((r, i) => (
             <motion.a
               key={r.title}
-              href="#"
+              href="#roadmap"
               className="glass-card relative overflow-hidden flex items-start gap-4 p-6 no-underline group"
-              initial={{ opacity: 0, x: i === 0 ? -30 : 30 }}
-              whileInView={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.15 }}
+              transition={{ duration: 0.5, delay: i * 0.1 }}
               whileHover={{ y: -6, transition: { duration: 0.25 } }}
             >
               <motion.div
@@ -36,7 +38,7 @@ export default function Resources() {
               </motion.div>
               <div>
                 <h4 className="font-display font-semibold text-sm text-foreground group-hover:text-primary transition-colors duration-300">{r.title}</h4>
-                <p className="text-xs text-muted-foreground mt-1">{r.sub}</p>
+                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{r.sub}</p>
               </div>
             </motion.a>
           ))}

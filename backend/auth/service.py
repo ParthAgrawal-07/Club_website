@@ -21,9 +21,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.google_oauth import GoogleUserInfo
+from auth.models import User
 
 
-async def get_or_create_user(session: AsyncSession, google_user: GoogleUserInfo, User):
+async def get_or_create_user(session: AsyncSession, google_user: GoogleUserInfo):
     """
     Find an existing user by Google ID (or email as fallback) and return it,
     or create a new user record if this is the first login.
@@ -38,7 +39,6 @@ async def get_or_create_user(session: AsyncSession, google_user: GoogleUserInfo,
     Args:
         session:     An active async DB session (injected by the route).
         google_user: Verified claims from Google's token endpoint.
-        User:        The SQLAlchemy User model class.
 
     Returns:
         Tuple[User, bool]: (user_record, is_new_user)
@@ -89,14 +89,13 @@ async def get_or_create_user(session: AsyncSession, google_user: GoogleUserInfo,
     return new_user, True   # brand-new user
 
 
-async def get_user_by_id(session: AsyncSession, user_id: int, User) -> Optional[object]:
+async def get_user_by_id(session: AsyncSession, user_id: int) -> Optional[User]:
     """
     Fetch a user record by primary key.
 
     Args:
         session: Active async DB session.
         user_id: Integer primary key.
-        User:    SQLAlchemy User model class.
 
     Returns:
         User ORM instance or None if not found.

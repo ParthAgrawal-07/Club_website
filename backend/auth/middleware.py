@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth.jwt_handler import decode_access_token
 from auth.service import get_user_by_id
+from auth.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -74,10 +75,9 @@ async def get_current_user(
 
     # ── Import here to avoid circular imports at module load time ──────────────
     from db import async_session   # noqa: PLC0415
-    from main import User as UserModel  # noqa: PLC0415
 
     async with async_session() as session:
-        user = await get_user_by_id(session, user_id, UserModel)
+        user = await get_user_by_id(session, user_id)
 
     if user is None:
         logger.warning("Token contained user_id=%d but no such user in DB.", user_id)
@@ -109,9 +109,8 @@ async def get_optional_user(
 
     try:
         from db import async_session   # noqa: PLC0415
-        from main import User as AppUser  # noqa: PLC0415
 
         async with async_session() as session:
-            return await get_user_by_id(session, user_id, AppUser)
+            return await get_user_by_id(session, user_id)
     except Exception:
         return None

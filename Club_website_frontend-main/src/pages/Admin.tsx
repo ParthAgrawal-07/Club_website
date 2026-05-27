@@ -244,7 +244,7 @@ const Admin = () => {
       if (res.ok) {
         const data = await res.json();
         if (data.authenticated && data.user) {
-          const isAdmin = data.user.email === 'meet56963@gmail.com';
+          const isAdmin = !!data.user.is_admin;
           setAuthState({
             isLoading: false,
             isAuthenticated: true,
@@ -287,7 +287,7 @@ const Admin = () => {
       if (syncRes.ok) {
         const syncData = await syncRes.json();
         if (syncData.status === 'success' && syncData.user) {
-          const isAdmin = syncData.user.email === 'meet56963@gmail.com';
+          const isAdmin = !!syncData.user.is_admin;
           setAuthState({
             isLoading: false,
             isAuthenticated: true,

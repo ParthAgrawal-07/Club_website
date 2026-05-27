@@ -35,6 +35,7 @@ from auth.config import settings
 from auth.google_oauth import verify_google_id_token
 from auth.jwt_handler import create_access_token
 from auth.middleware import get_current_user
+from auth.models import User
 from auth.schemas import (
     AuthMeResponse,
     AuthSuccessResponse,
@@ -120,13 +121,12 @@ async def google_auth(
 
     # ── Step 2: Upsert user in database ───────────────────────────────────────
     try:
-        # Import the shared session factory and User model from the app root.
+        # Import the shared session factory from the db module.
         # Done at call time to avoid circular imports.
         from db import async_session     # noqa: PLC0415
-        from main import User            # noqa: PLC0415
 
         async with async_session() as session:
-            db_user, is_new = await get_or_create_user(session, google_user, User)
+            db_user, is_new = await get_or_create_user(session, google_user)
 
     except Exception as exc:
         logger.exception("Database error during Google auth: %s", exc)

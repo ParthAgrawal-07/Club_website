@@ -52,13 +52,11 @@ from forms.file_handler import save_upload, validate_upload
 from forms.models import FormField, FormTemplate
 from forms.schemas import _field_key
 from registrations.schemas import (
-    AdminRegistrationsResponse,
     RegistrationSubmitRequest,
     RegistrationSubmitResponse,
     UserRegistrationsResponse,
 )
 from registrations.service import (
-    get_event_registrations,
     get_user_registrations,
     register_for_event,
 )
@@ -272,37 +270,4 @@ async def get_my_registrations(
         )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# GET /api/admin/events/{event_id}/registrations
-# ─────────────────────────────────────────────────────────────────────────────
 
-@router.get(
-    "/api/admin/events/{event_id}/registrations",
-    response_model=AdminRegistrationsResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Get all registrations for an event (admin)",
-    description=(
-        "**Admin only.** Returns every registration for the given event, "
-        "including responses, team members, and uploaded file URLs."
-    ),
-)
-async def get_registrations_admin(
-    event_id: int,
-    admin=Depends(require_admin),
-    db: AsyncSession = Depends(get_db),
-):
-    try:
-        details = await get_event_registrations(db, event_id)
-        return AdminRegistrationsResponse(
-            event_id      = event_id,
-            total         = len(details),
-            registrations = details,
-        )
-    except Exception as exc:
-        logger.exception(
-            "Failed to fetch registrations for event_id=%d: %s", event_id, exc
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Could not fetch event registrations. Please try again.",
-        )

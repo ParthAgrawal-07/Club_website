@@ -18,8 +18,10 @@ users
   created_at    TIMESTAMPTZ DEFAULT NOW()
 """
 
+import os
 from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime
+from db import Base
 
 
 def _utcnow() -> datetime:
@@ -27,26 +29,25 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-# ─── SQLAlchemy model (Base is injected at startup from db.py) ────────────────
-
-def create_user_model(Base):
+class User(Base):
     """
-    Factory so we can reuse the same declarative Base that is shared
-    across the whole application instead of creating a second one here.
+    Users table — stores everyone who has authenticated via Google OAuth.
     """
+    __tablename__ = "users"
 
-    class User(Base):
-        __tablename__ = "users"
+    id            = Column(Integer, primary_key=True, index=True)
+    google_id     = Column(String(255), unique=True, nullable=False, index=True)
+    name          = Column(String(255), nullable=False)
+    email         = Column(String(255), unique=True, nullable=False, index=True)
+    profile_image = Column("picture", String(500), nullable=True)
+    last_login    = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
+    created_at    = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
 
-        id = Column(Integer, primary_key=True, index=True)
-        google_id = Column(String(255), unique=True, nullable=False, index=True)
-        name = Column(String(255), nullable=False)
-        email = Column(String(255), unique=True, nullable=False, index=True)
-        profile_image = Column("picture", String(500), nullable=True)
-        last_login = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
-        created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
+    @property
+    def is_admin(self) -> bool:
+        admin_env = os.getenv("SUPER_ADMIN_EMAIL", "meet56963@gmail.com")
+        admins = [email.strip() for email in admin_env.split(",") if email.strip()]
+        return self.email in admins
 
-        def __repr__(self) -> str:  # pragma: no cover
-            return f"<User id={self.id} email={self.email!r}>"
-
-    return User
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"<User id={self.id} email={self.email!r}>"

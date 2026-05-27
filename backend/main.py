@@ -18,6 +18,7 @@ from db import Base, async_session, engine  # noqa: E402
 
 # ── Auth module ────────────────────────────────────────────────────────────
 from auth.config import settings as auth_settings
+from auth.models import User  # registers User table with Base
 from auth.routes import router as auth_router
 
 # ── Events module ──────────────────────────────────────────────────────────
@@ -73,20 +74,6 @@ os.makedirs(uploads_dir, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 
-# --- DATABASE MODELS ---
-class User(Base):
-    """
-    Users table — stores everyone who has authenticated via Google OAuth.
-    """
-    __tablename__ = 'users'
-    __table_args__ = {"extend_existing": True}
-    id            = Column(Integer, primary_key=True, index=True)
-    google_id     = Column(String(255), unique=True, nullable=False, index=True)
-    name          = Column(String(255), nullable=False)
-    email         = Column(String(255), unique=True, nullable=False, index=True)
-    profile_image = Column("picture", String(500), nullable=True)
-    last_login    = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    created_at    = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
 # ── Register routers ───────────────────────────────────────────────────────
 app.include_router(auth_router)

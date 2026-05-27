@@ -17,6 +17,7 @@ interface UserProfile {
   name: string;
   email: string;
   picture: string;
+  is_admin: boolean;
 }
 
 export default function Navbar() {
@@ -67,7 +68,8 @@ export default function Navbar() {
             setUser({
               name: data.user.name,
               email: data.user.email,
-              picture: data.user.profile_image || ''
+              picture: data.user.profile_image || '',
+              is_admin: !!data.user.is_admin
             });
             setIsInitializing(false);
             return;
@@ -104,7 +106,8 @@ export default function Navbar() {
           const mappedUser: UserProfile = {
             name: syncData.user.name,
             email: syncData.user.email,
-            picture: syncData.user.profile_image || ''
+            picture: syncData.user.profile_image || '',
+            is_admin: !!syncData.user.is_admin
           };
           setUser(mappedUser);
         }
@@ -204,7 +207,7 @@ export default function Navbar() {
                       <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
                     </div>
 
-                    {user.email === 'meet56963@gmail.com' && (
+                    {user.is_admin && (
                       <a
                         href="/admin"
                         className="flex w-full items-center gap-2 px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary rounded-lg transition-colors mb-1"
@@ -286,7 +289,7 @@ export default function Navbar() {
 
                 {user ? (
                   <>
-                    {user.email === 'meet56963@gmail.com' && (
+                    {user.is_admin && (
                       <motion.li
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}

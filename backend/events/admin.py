@@ -58,11 +58,12 @@ async def require_admin(
             detail="Admin system is not configured on this server.",
         )
 
-    if current_user.email != SUPER_ADMIN_EMAIL:
+    admin_emails = [email.strip() for email in SUPER_ADMIN_EMAIL.split(",") if email.strip()]
+    if current_user.email not in admin_emails:
         logger.warning(
-            "Admin access denied for user email=%r (expected %r)",
+            "Admin access denied for user email=%r (expected one of %r)",
             current_user.email,
-            SUPER_ADMIN_EMAIL,
+            admin_emails,
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
