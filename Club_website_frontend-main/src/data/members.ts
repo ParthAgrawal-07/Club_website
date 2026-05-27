@@ -1,7 +1,7 @@
 // src/data/members.ts
 // AI Club Members Data — generated from club form responses
 
-export type MemberRole = 'Convenor' | 'Core Member' | 'Extended Core Member' | 'Member';
+export type MemberRole = 'Convenor' | 'Deputy Convenor' | 'Core Member' | 'Extended Core Member' | 'Member';
 
 export interface Member {
   id: number;

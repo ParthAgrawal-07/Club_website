@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 class MemberCreateRequest(BaseModel):
     name:        str = Field(..., min_length=1, max_length=255)
-    role:        str = Field(..., description="'Convenor' | 'Core Member' | 'Extended Core Member' | 'Member'")
+    role:        str = Field(..., description="'Convenor' | 'Deputy Convenor' | 'Core Member' | 'Extended Core Member' | 'Member'")
     photo:       Optional[str] = None
     description: Optional[str] = None
     github:      Optional[str] = None

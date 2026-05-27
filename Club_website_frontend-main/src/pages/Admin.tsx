@@ -2024,6 +2024,7 @@ const Admin = () => {
                       className="w-full bg-secondary border border-border rounded-lg px-4 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
                     >
                       <option value="Convenor">Convenor</option>
+                      <option value="Deputy Convenor">Deputy Convenor</option>
                       <option value="Core Member">Core Member</option>
                       <option value="Extended Core Member">Extended Core Member</option>
                       <option value="Member">Member</option>
