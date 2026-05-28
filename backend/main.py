@@ -1,121 +1,118 @@
 import os
-import logging
-import asyncio
-import httpx
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from fastapi.security.api_key import APIKeyHeader
+from pydantic import BaseModel, EmailStr, field_validator
 from google import genai
 from dotenv import load_dotenv
 from datetime import datetime, timezone
-
-# SQLAlchemy AsyncIO imports
-from sqlalchemy import Column, Integer, String, Text, DateTime, select, desc
-
-# ── Shared DB (engine + session factory + Base) ────────────────────────────
-from db import Base, async_session, engine  # noqa: E402
-
-# ── Auth module ────────────────────────────────────────────────────────────
-from auth.config import settings as auth_settings
-from auth.models import User  # registers User table with Base
-from auth.routes import router as auth_router
-
-# ── Events module ──────────────────────────────────────────────────────────
-from events.models import ClubEvent   # registers the table with Base
-from events.routes import router as events_router
-
-# ── Forms module (Dynamic Event Form Builder) ──────────────────────────────
-from forms.models import FormTemplate, FormField   # registers tables with Base
-from forms.routes import router as forms_router
-
-# ── Registrations module ───────────────────────────────────────────────────
-from registrations.models import (
-    EventRegistration, RegistrationResponse,
-    Team, TeamMember, UploadedFile,
-)
-from registrations.routes import router as registrations_router
-
-# ── Admin Dashboard module ─────────────────────────────────────────────────
-from admin.routes import router as admin_router
-
-# ── Members & Projects module ──────────────────────────────────────────────
-from members.models import ClubMember, ClubProject   # registers tables with Base
-
+from contextlib import asynccontextmanager
+import asyncpg
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI(title="AI Club DAU API", version="1.0.0")
+# ─── PostgreSQL Pool ────────────────────────────────────────────────────────────
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable is not set")
 
-# --- CORS SETUP ---
-allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
-if allowed_origins_env:
-    origins = [orig.strip() for orig in allowed_origins_env.split(",") if orig.strip()]
-else:
-    origins = [
+# asyncpg needs postgresql:// not postgresql+asyncpg://
+_PG_DSN = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://") \
+                       .replace("postgres+asyncpg://", "postgresql://")
+
+db_pool: asyncpg.Pool | None = None
+
+# ─── App lifespan — create pool + tables ───────────────────────────────────────
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    global db_pool
+    db_pool = await asyncpg.create_pool(
+        dsn=_PG_DSN,
+        min_size=1,
+        max_size=10,
+        command_timeout=30,
+        ssl="require" if "localhost" not in _PG_DSN else None,
+    )
+    # Create tables if they don't exist — aligned with real Supabase schema
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS events (
+                id             SERIAL PRIMARY KEY,
+                event_name     VARCHAR(500)  NOT NULL,
+                event_date     VARCHAR(100)  NOT NULL,
+                summary        TEXT          NOT NULL,
+                winners        VARCHAR(500)  NOT NULL DEFAULT '',
+                key_highlights TEXT          NOT NULL DEFAULT '',
+                created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS applications (
+                id         SERIAL PRIMARY KEY,
+                name       VARCHAR(255)  NOT NULL,
+                email      VARCHAR(255)  NOT NULL UNIQUE,
+                branch     VARCHAR(255)  NOT NULL,
+                interest   VARCHAR(255)  NOT NULL,
+                reason     TEXT          NOT NULL DEFAULT '',
+                created_at TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+            );
+
+            CREATE TABLE IF NOT EXISTS public.users (
+                id         SERIAL PRIMARY KEY,
+                google_id  VARCHAR(255)  NOT NULL UNIQUE,
+                name       VARCHAR(255)  NOT NULL,
+                email      VARCHAR(255)  NOT NULL UNIQUE,
+                picture    VARCHAR(500),
+                kaggle_id  VARCHAR(255),
+                last_login TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+                created_at TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+            );
+        """)
+    print("✅ PostgreSQL pool ready, tables verified")
+    yield
+    await db_pool.close()
+
+
+# ─── FastAPI app ────────────────────────────────────────────────────────────────
+app = FastAPI(title="AI Club DAIICT API", version="2.0.0", lifespan=lifespan)
+
+# ─── CORS ───────────────────────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
         "http://localhost:5173",
         "http://localhost:8080",
         "http://localhost:3000",
         "https://aiclubdau.vercel.app",
         "https://club-website-7aay.vercel.app",
         "https://club-website-eta.vercel.app",
-        "https://club-website-blush.vercel.app"
-    ]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
+        "https://ai-club-website-mu.vercel.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     max_age=600,
 )
 
-# --- SERVE UPLOADS STATICALLY ---
-uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
-os.makedirs(uploads_dir, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+# ─── Gemini ─────────────────────────────────────────────────────────────────────
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if not GOOGLE_API_KEY:
+    raise RuntimeError("GOOGLE_API_KEY environment variable is not set")
+ai_client = genai.Client(api_key=GOOGLE_API_KEY)
 
+# ─── Admin auth ─────────────────────────────────────────────────────────────────
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")
+admin_key_header = APIKeyHeader(name="X-Admin-Key", auto_error=False)
 
+async def verify_admin(api_key: str = Depends(admin_key_header)):
+    if not ADMIN_API_KEY:
+        if os.getenv("ENVIRONMENT", "development") == "production":
+            raise HTTPException(status_code=503, detail="Admin not configured")
+        return True
+    if api_key != ADMIN_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid or missing admin API key")
+    return True
 
-# ── Register routers ───────────────────────────────────────────────────────
-app.include_router(auth_router)
-app.include_router(events_router)
-app.include_router(forms_router)
-app.include_router(registrations_router)
-app.include_router(admin_router)
-
-
-# ── Startup ────────────────────────────────────────────────────────────────
-async def keep_alive_task():
-    """
-    Pings the API itself every 14 minutes and 50 seconds to prevent
-    Render free tier from spinning down the instance.
-    """
-    url = "https://club-website-ehct.onrender.com/docs"
-    while True:
-        await asyncio.sleep(890)  # 14 minutes and 50 seconds
-        try:
-            async with httpx.AsyncClient() as client:
-                await client.get(url)
-                logging.info(f"Keep-alive ping sent to {url}")
-        except Exception as e:
-            logging.error(f"Keep-alive ping failed: {e}")
-
-@app.on_event("startup")
-async def startup():
-    # Validate auth configuration early so we fail fast.
-    auth_settings.validate()
-    # Auto-create all tables (idempotent).
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    # Start the keep-alive background task
-    asyncio.create_task(keep_alive_task())
-
-# ── Gemini AI setup ────────────────────────────────────────────────────────
-ai_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # ---------------------------------------------------------------------------
 # STATIC KNOWLEDGE BASE — mirrors everything displayed on the website
@@ -276,30 +273,224 @@ Q: Where can I find the club on social media?
 A: Discord: https://discord.gg/yB3Huet5 | Instagram: @aiclub_dau | GitHub: ai-club-dau | LinkedIn: AI Club DAU
 """
 
-# --- DATA MODELS ---
+
+# ─── Pydantic Models ────────────────────────────────────────────────────────────
 class ChatRequest(BaseModel):
     message: str
 
+    @field_validator('message')
+    @classmethod
+    def message_must_not_be_empty(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError('Message cannot be empty')
+        if len(v) > 1000:
+            raise ValueError('Message too long (max 1000 characters)')
+        return v
 
-# ── AI Chatbot ─────────────────────────────────────────────────────────────
+
+class EventData(BaseModel):
+    event_name: str
+    event_date: str
+    summary: str
+    winners: str = ""
+    key_highlights: str = ""
+
+    @field_validator('event_name', 'event_date', 'summary')
+    @classmethod
+    def required_not_empty(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError('Field cannot be empty')
+        return v
+
+
+class ApplicationData(BaseModel):
+    name: str
+    email: EmailStr
+    branch: str
+    interest: str
+    reason: str = ""
+
+    @field_validator('name', 'branch', 'interest')
+    @classmethod
+    def fields_must_not_be_empty(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError('Field cannot be empty')
+        return v
+
+
+# ─── Routes ─────────────────────────────────────────────────────────────────────
+
+# Preflight CORS handlers for Vercel
+# Preflight CORS handlers for Vercel
+@app.options("/api/admin/events")
+async def options_admin_events(request: Request):
+    return Response(status_code=200)
+
+@app.options("/api/admin/applications")
+async def options_admin_applications(request: Request):
+    return Response(status_code=200)
+
+@app.options("/api/admin/kaggle-registrations")
+async def options_admin_kaggle_registrations(request: Request):
+    return Response(status_code=200)
+
+@app.options("/api/admin/events/{event_id}")
+async def options_admin_events_id(request: Request, event_id: str):
+    return Response(status_code=200)
+
+@app.options("/api/admin/applications/{app_id}")
+async def options_admin_applications_id(request: Request, app_id: str):
+    return Response(status_code=200)
+
+@app.options("/api/admin/kaggle-registrations/{reg_id}")
+async def options_admin_kaggle_registrations_id(request: Request, reg_id: str):
+    return Response(status_code=200)
+
+
+# POST /api/admin/events — add a new event (protected)
+@app.post("/api/admin/events")
+async def add_event(event: EventData, _: bool = Depends(verify_admin)):
+    try:
+        row = await db_pool.fetchrow(
+            """INSERT INTO events (event_name, event_date, summary, winners, key_highlights)
+               VALUES ($1, $2, $3, $4, $5)
+               RETURNING id""",
+            event.event_name, event.event_date, event.summary,
+            event.winners, event.key_highlights,
+        )
+        return {"status": "Success", "id": row["id"]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Add event error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save event")
+
+
+# GET /api/admin/events — list all events (protected)
+@app.get("/api/admin/events")
+async def get_events(_: bool = Depends(verify_admin)):
+    try:
+        rows = await db_pool.fetch(
+            "SELECT * FROM events ORDER BY created_at DESC LIMIT 500"
+        )
+        return [dict(r) for r in rows]
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Get events error: {e}")
+        raise HTTPException(status_code=500, detail="Could not fetch events")
+
+
+# DELETE /api/admin/events/{event_id} — delete an event (protected)
+@app.delete("/api/admin/events/{event_id}")
+async def delete_event(event_id: int, _: bool = Depends(verify_admin)):
+    try:
+        result = await db_pool.execute(
+            "DELETE FROM events WHERE id = $1", event_id
+        )
+        if result == "DELETE 0":
+            raise HTTPException(status_code=404, detail="Event not found")
+        return {"status": "Success", "message": f"Event {event_id} deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Delete event error: {e}")
+        raise HTTPException(status_code=500, detail="Could not delete event")
+
+
+# GET /api/admin/applications — list all membership applications (protected)
+@app.get("/api/admin/applications")
+async def get_applications(_: bool = Depends(verify_admin)):
+    try:
+        rows = await db_pool.fetch(
+            "SELECT * FROM applications ORDER BY created_at DESC LIMIT 500"
+        )
+        return [dict(r) for r in rows]
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Get applications error: {e}")
+        raise HTTPException(status_code=500, detail="Could not fetch applications")
+
+
+# DELETE /api/admin/applications/{app_id} — delete an application (protected)
+@app.delete("/api/admin/applications/{app_id}")
+async def delete_application(app_id: int, _: bool = Depends(verify_admin)):
+    try:
+        result = await db_pool.execute(
+            "DELETE FROM applications WHERE id = $1", app_id
+        )
+        if result == "DELETE 0":
+            raise HTTPException(status_code=404, detail="Application not found")
+        return {"status": "Success", "message": f"Application {app_id} deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Delete application error: {e}")
+        raise HTTPException(status_code=500, detail="Could not delete application")
+
+
+# GET /api/admin/kaggle-registrations — list all registered Kaggle participants from users table (protected)
+@app.get("/api/admin/kaggle-registrations")
+async def get_kaggle_registrations(_: bool = Depends(verify_admin)):
+    try:
+        rows = await db_pool.fetch(
+            """SELECT id, google_id, name, email, picture, kaggle_id, created_at AS registered_at
+               FROM public.users
+               WHERE kaggle_id IS NOT NULL AND kaggle_id != ''
+               ORDER BY created_at DESC LIMIT 500"""
+        )
+        return [dict(r) for r in rows]
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Get kaggle-registrations error: {e}")
+        raise HTTPException(status_code=500, detail="Could not fetch kaggle registrations")
+
+
+# DELETE /api/admin/kaggle-registrations/{reg_id} — clear kaggle_id from a user (protected)
+@app.delete("/api/admin/kaggle-registrations/{reg_id}")
+async def delete_kaggle_registration(reg_id: int, _: bool = Depends(verify_admin)):
+    try:
+        result = await db_pool.execute(
+            "UPDATE public.users SET kaggle_id = NULL WHERE id = $1 AND kaggle_id IS NOT NULL", reg_id
+        )
+        if result == "UPDATE 0":
+            raise HTTPException(status_code=404, detail="Registration not found")
+        return {"status": "Success", "message": f"Kaggle registration for user {reg_id} removed"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Delete registration error: {e}")
+        raise HTTPException(status_code=500, detail="Could not remove kaggle registration")
+
+
+# POST /api/club-chat — AI chatbot powered by the full knowledge base
 @app.post("/api/club-chat")
 async def club_chat(request: ChatRequest):
     try:
+        # Pull recent events from the DB to supplement static knowledge
         dynamic_context = ""
-        async with async_session() as session:
-            result = await session.execute(
-                select(ClubEvent).order_by(desc(ClubEvent.event_date)).limit(1)
+        try:
+            rows = await db_pool.fetch(
+                "SELECT * FROM events ORDER BY created_at DESC LIMIT 10"
             )
-            latest_event = result.scalars().first()
-            if latest_event:
-                dynamic_context = f"""
-LATEST EVENT FROM DATABASE:
-- Name: {latest_event.title}
-- Date: {latest_event.event_date.isoformat() if hasattr(latest_event.event_date, 'isoformat') else latest_event.event_date}
-- Description: {latest_event.description}
-- Category: {latest_event.category}
-- Venue: {latest_event.venue}
+            if rows:
+                events_str = ""
+                for idx, r in enumerate(rows, 1):
+                    events_str += f"""
+{idx}. Event Name: {r['event_name']}
+   Date: {r['event_date']}
+   Summary: {r['summary']}
+   Highlights: {r['key_highlights']}
+   Winners: {r['winners']}
 """
+                dynamic_context = f"\nRECENT DYNAMIC EVENTS FROM DATABASE:\n{events_str}\n"
+        except Exception as e:
+            print(f"Error fetching dynamic events context: {e}")
 
         system_prompt = f"""You are NeuralNode, the official AI assistant of AI Club DAU — a friendly, knowledgeable, and enthusiastic chatbot embedded on the club's website.
 
@@ -319,18 +510,40 @@ RULES:
 """
 
         response = ai_client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-1.5-flash',
             contents=f"{system_prompt}\n\nUser question: {request.message}"
         )
 
         return {"reply": response.text}
 
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"CRITICAL CHAT ERROR: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Backend Crash: {str(e)}")
+        print(f"CRITICAL CHAT ERROR: {type(e).__name__}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="AI assistant is temporarily unavailable. Please try again in a moment."
+        )
 
 
-# Used only for local testing
+@app.options("/api/events")
+async def options_public_events(request: Request):
+    return Response(status_code=200)
+
+# GET /api/events — public endpoint to list all events (for display on website)
+@app.get("/api/events")
+async def get_public_events():
+    try:
+        rows = await db_pool.fetch(
+            "SELECT * FROM events ORDER BY created_at DESC LIMIT 500"
+        )
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"Get public events error: {e}")
+        raise HTTPException(status_code=500, detail="Could not fetch events")
+
+
+# Local development entrypoint
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

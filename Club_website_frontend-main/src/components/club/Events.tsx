@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Upload, Users, ArrowRight, Loader2, CalendarDays, Mic, UsersRound, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { getApiUrl } from '@/lib/utils';
 
 interface EventModel {
   id: number;
@@ -54,8 +54,7 @@ export default function Events({ isHomepage = false }: { isHomepage?: boolean })
   const [events, setEvents] = useState<EventModel[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [timeLeft, setTimeLeft] = useState({ d: '00', h: '00', m: '00', s: '00' });
-  const [searchQuery, setSearchQuery] = useState('');
-  const [pastSearchQuery, setPastSearchQuery] = useState('');
+  const [dbEvents, setDbEvents] = useState<Array<{ tag: string; tagClass: string; title: string; desc: string; meta: string[] }>>([]);
 
   // Past Events state
   const [pastEvents, setPastEvents] = useState<PastEvent[]>([]);
@@ -183,275 +182,124 @@ export default function Events({ isHomepage = false }: { isHomepage?: boolean })
     return () => clearInterval(interval);
   }, [featured]);
 
-  // 2. Load form schema when an event is selected
   useEffect(() => {
-    if (selectedEvent) {
-      const loadSchema = async () => {
-        setLoadingSchema(true);
-        setFormFields([]);
-        setResponses({});
-        setUploadedFiles({});
-        setTeamName('');
-        setTeamMembers([{ name: '', email: '' }]);
-        setSubmitMessage(null);
-
-        // Prepopulate default fields from backend profile
-        let profile: any = {};
-        try {
-          const headers: Record<string, string> = {};
-          const token = localStorage.getItem('auth_token');
-          if (token) headers['Authorization'] = `Bearer ${token}`;
-
-          const authRes = await fetch(getApiUrl('/api/auth/me'), { headers, credentials: 'include' });
-          if (authRes.ok) {
-            const authData = await authRes.json();
-            if (authData.authenticated && authData.user) {
-              profile = authData.user;
-              setUserProfile(authData.user);
-            } else {
-              setUserProfile(null);
-            }
-          } else {
-            setUserProfile(null);
-          }
-        } catch (e) {
-          console.error('Failed to retrieve authentication details:', e);
-          setUserProfile(null);
-        }
-
-        try {
-          const res = await fetch(getApiUrl(`/api/events/${selectedEvent.id}/form-schema`));
-          if (res.ok) {
-            const data = await res.json();
-            const fields: FormFieldModel[] = data.fields || [];
-            setFormFields(fields);
-            
-            // Pre-fill fields with user profile info by label matching
-            const initialResponses: Record<string, any> = {};
-            fields.forEach(field => {
-              const labelLower = field.label.toLowerCase();
-              if (labelLower.includes('name') && profile.name) {
-                initialResponses[field.id] = profile.name;
-              } else if (labelLower.includes('email') && profile.email) {
-                initialResponses[field.id] = profile.email;
-              } else if (field.field_type === 'checkbox') {
-                initialResponses[field.id] = [];
-              } else {
-                initialResponses[field.id] = '';
-              }
-            });
-            setResponses(initialResponses);
-          }
-        } catch (e) {
-          console.error('Failed to load form schema', e);
-        } finally {
-          setLoadingSchema(false);
-        }
-      };
-      loadSchema();
-    } else {
-      setFormFields([]);
-      setResponses({});
-      setUploadedFiles({});
-      setSubmitMessage(null);
-      setUserProfile(null);
-    }
-  }, [selectedEvent]);
-
-  // Handle input changes dynamically
-  const handleInputChange = (fieldId: number, value: any) => {
-    setResponses(prev => ({ ...prev, [fieldId]: value }));
-  };
-
-  const handleCheckboxChange = (fieldId: number, option: string, checked: boolean) => {
-    const currentList = responses[fieldId] || [];
-    let updatedList = [];
-    if (checked) {
-      updatedList = [...currentList, option];
-    } else {
-      updatedList = currentList.filter((item: string) => item !== option);
-    }
-    handleInputChange(fieldId, updatedList);
-  };
-
-  const handleFileChange = (fieldId: number, file: File) => {
-    setUploadedFiles(prev => ({ ...prev, [fieldId]: file }));
-    handleInputChange(fieldId, file.name);
-  };
-
-  const addTeamMember = () => {
-    if (selectedEvent && selectedEvent.max_team_size && teamMembers.length + 1 >= selectedEvent.max_team_size) {
-      // reached limit (note: leader is not in members array, so limit is max_team_size - 1)
-    }
-    setTeamMembers(prev => [...prev, { name: '', email: '' }]);
-  };
-
-  const removeTeamMember = (index: number) => {
-    setTeamMembers(prev => prev.filter((_, i) => i !== index));
-  };
-
-  // Submit registration form
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedEvent) return;
-
-    // Check if user is logged in
-    let currentUser = userProfile;
-    if (!currentUser) {
+    const fetchEvents = async () => {
       try {
-        const headers: Record<string, string> = {};
-        const token = localStorage.getItem('auth_token');
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        const authRes = await fetch(getApiUrl('/api/auth/me'), { headers, credentials: 'include' });
-        if (authRes.ok) {
-          const authData = await authRes.json();
-          if (authData.authenticated && authData.user) {
-            currentUser = authData.user;
-            setUserProfile(authData.user);
-          }
+        const res = await fetch(getApiUrl('/api/events'));
+        if (res.ok) {
+          const data = await res.json();
+          const mapped = data.map((e: any) => ({
+            tag: e.winners ? 'Competition' : 'Event',
+            tagClass: e.winners ? 'tag-pink' : 'tag-blue',
+            title: e.event_name,
+            desc: e.summary + (e.key_highlights ? ` Highlights: ${e.key_highlights}` : '') + (e.winners ? ` Winners: ${e.winners}` : ''),
+            meta: [e.event_date, 'Added dynamically'],
+          }));
+          setDbEvents(mapped);
         }
       } catch (err) {
-        console.error("Failed to check auth during submission", err);
+        console.error('Failed to load dynamic events:', err);
       }
-    }
+    };
+    fetchEvents();
+  }, []);
 
-    if (!currentUser) {
-      setSubmitMessage({ type: 'error', text: 'You must be logged in to register for events.' });
-      return;
-    }
+  const tabs = ['upcoming', 'past', 'workshops'];
 
-    setIsSubmitting(true);
-    setSubmitMessage(null);
-
-    try {
-      // Check required fields
-      for (const field of formFields) {
-        if (field.required && !responses[field.id] && !uploadedFiles[field.id]) {
-          throw new Error(`The field "${field.label}" is required.`);
-        }
-      }
-
-      // Team validation
-      let teamInput = null;
-      if (selectedEvent.event_type === 'team') {
-        if (!teamName.trim()) {
-          throw new Error('Team Name is required.');
-        }
-        const activeMembers = teamMembers.filter(m => m.name.trim() && m.email.trim());
-        const totalTeamSize = activeMembers.length + 1; // leader + members
-        const minSize = selectedEvent.min_team_size || 2;
-        const maxSize = selectedEvent.max_team_size || 4;
-
-        if (totalTeamSize < minSize || totalTeamSize > maxSize) {
-          throw new Error(`Team size must be between ${minSize} and ${maxSize} members.`);
-        }
-        teamInput = {
-          team_name: teamName.trim(),
-          members: activeMembers.map(m => ({ member_name: m.name.trim(), member_email: m.email.trim() }))
-        };
-      }
-
-      const hasFiles = Object.keys(uploadedFiles).length > 0;
-      const apiPath = `/api/events/${selectedEvent.id}/register`;
-
-      let res;
-      const token = localStorage.getItem('auth_token');
-      if (hasFiles) {
-        // Send as multipart/form-data
-        const formDataPayload = new FormData();
-        formDataPayload.append('data', JSON.stringify({
-          responses: responses,
-          team: teamInput
-        }));
-
-        Object.entries(uploadedFiles).forEach(([fieldId, file]) => {
-          formDataPayload.append(fieldId, file);
-        });
-
-        const headers: Record<string, string> = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        res = await fetch(getApiUrl(apiPath), {
-          method: 'POST',
-          headers: headers,
-          body: formDataPayload,
-          credentials: 'include' // include session cookies
-        });
-      } else {
-        // Send as JSON
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        res = await fetch(getApiUrl(apiPath), {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify({
-            responses: responses,
-            team: teamInput
-          }),
-          credentials: 'include'
-        });
-      }
-
-      const data = await res.json();
-      if (!res.ok) {
-        if (res.status === 401) {
-          throw new Error('You must be logged in to register for events.');
-        }
-        throw new Error(data.detail || 'Registration failed');
-      }
-
-      setSubmitMessage({ type: 'success', text: 'Registration successful! See you at the event.' });
-      setTimeout(() => {
-        setSelectedEvent(null);
-      }, 2500);
-    } catch (err: any) {
-      setSubmitMessage({ type: 'error', text: err.message || 'Server error. Please try again.' });
-    } finally {
-      setIsSubmitting(false);
-    }
+  const staticEventCards: Record<string, Array<{ tag: string; tagClass: string; title: string; desc: string; meta: string[] }>> = {
+    upcoming: [
+      {
+        tag: 'Kaggle Contest',
+        tagClass: 'tag-blue',
+        title: 'AI Club Kaggle Contest 2026',
+        desc: 'A college-wide Kaggle competition open to every student at DAIICT — not just club members. Tackle a real-world machine learning dataset, climb the leaderboard, and compete for glory. Whether you are a beginner or a seasoned data scientist, this is your arena.',
+        meta: ['May 29 – 30, 2026', 'Open to All DAIICT Students'],
+      },
+      {
+        tag: 'Buildathon',
+        tagClass: 'tag-yellow',
+        title: '7-Day AI Buildathon',
+        desc: 'A week-long intensive where teams ideate, design, and ship a working AI-powered product from scratch. Each day has a theme — data, modelling, deployment, UI, and pitch. Best project wins the club spotlight.',
+        meta: ['August 2026', 'Team of 2–4'],
+      },
+    ],
+    past: [
+      {
+        tag: 'Workshop',
+        tagClass: 'tag-blue',
+        title: 'Quant Strategy Workshop × WorldQuant Brain',
+        desc: 'The first time a quantitative finance firm visited DAIICT. Mr. Ishan Shandilya from WorldQuant led a hands-on session on building alphas on the WQBrain platform and introduced the International Quant Championship (IQC) with its $100k prize pool. Attracted 160+ students, free pizza, and WorldQuant goodies.',
+        meta: ['April 10, 2025', '160+ attendees'],
+      },
+      {
+        tag: 'Guest Lecture',
+        tagClass: 'tag-green',
+        title: 'Demystifying AI: From Basics to Building AI Agents',
+        desc: 'Ms. Khyati Brahmbhatt (MS-IT 2006 alumna) guided students through the evolution of AI and the shift toward autonomous agents. Covered cutting-edge frameworks like LangChain, LangGraph, CrewAI, and n8n for workflow automation.',
+        meta: ['January 29, 2025', 'Guest Speaker Session'],
+      },
+      {
+        tag: 'Competition',
+        tagClass: 'tag-pink',
+        title: 'i.Prompt — Prompt Engineering at i.Fest\'24',
+        desc: 'Co-hosted with IEEE Student Branch DAIICT at i.Fest\'24, this creative prompt engineering tournament challenged participants to craft hyper-accurate image prompts matching physical reality. Tested both precision and imagination in a fast-paced competitive format.',
+        meta: ['November 16, 2024', 'In collaboration with IEEE DAIICT'],
+      },
+      {
+        tag: 'Talk',
+        tagClass: 'tag-yellow',
+        title: 'Transformers Deep-Dive',
+        desc: 'An in-depth technical session walking students through attention mechanisms, positional encoding, and the full Transformer architecture — with live code walkthroughs and real-world NLP application examples.',
+        meta: ['Feb 10, 2026', '80 attendees'],
+      },
+      {
+        tag: 'Competition',
+        tagClass: 'tag-blue',
+        title: 'AI Triathlon',
+        desc: 'A massive multi-stage club championship combining coding challenges, model optimisation, and rapid prototyping rounds. Participants pushed their limits across all three disciplines in a single high-energy event.',
+        meta: ['Oct 2025', '50+ participants'],
+      },
+    ],
+    workshops: [
+      {
+        tag: 'Workshop Series',
+        tagClass: 'tag-blue',
+        title: 'AI Odyssey: From Fundamentals to Mastery',
+        desc: 'The flagship lecture series of AI Club DAIICT. Session 1 kicked off the club\'s comprehensive roadmap — from absolute basics to advanced AI applications. Covered the core tool stack: Python, NumPy, Pandas, and Matplotlib with hands-on coding.',
+        meta: ['Ongoing Series', 'All skill levels'],
+      },
+      {
+        tag: 'Workshop',
+        tagClass: 'tag-green',
+        title: 'Hands-on Data Pre-processing',
+        desc: 'A practical "learning by doing" workshop focused on real-world data preprocessing using Pandas and Matplotlib. Students tackled messy datasets with interactive challenges covering null handling, normalisation, and exploratory analysis.',
+        meta: ['Oct 2025', 'Hands-on coding'],
+      },
+      {
+        tag: 'Workshop',
+        tagClass: 'tag-pink',
+        title: 'EDA Session',
+        desc: 'Deep dive into Exploratory Data Analysis — understanding distributions, spotting outliers, visualising correlations, and extracting insights from raw data before modelling.',
+        meta: ['2024–25', 'Beginner friendly'],
+      },
+      {
+        tag: 'Workshop',
+        tagClass: 'tag-yellow',
+        title: 'Intro to PyTorch',
+        desc: 'Hands-on workshop covering tensors, autograd, and building your first neural network from scratch using PyTorch. Perfect for anyone ready to move from theory to real deep learning code.',
+        meta: ['Coming Soon', 'Intermediate level'],
+      },
+    ],
   };
 
-  // Helper for tab lists - using only real database events, no mock fallbacks
-  const displayEvents = events;
+  const eventCards: Record<string, Array<{ tag: string; tagClass: string; title: string; desc: string; meta: string[] }>> = {
+    upcoming: staticEventCards.upcoming,
+    past: [...dbEvents, ...staticEventCards.past],
+    workshops: staticEventCards.workshops,
+  };
 
-  // Filter and search logic
-  const filteredEvents = displayEvents.filter(ev => {
-    if (!isHomepage && searchQuery.trim() !== '') {
-      const q = searchQuery.toLowerCase();
-      const matchesSearch = ev.title.toLowerCase().includes(q) ||
-                            ev.description.toLowerCase().includes(q) ||
-                            ev.category.toLowerCase().includes(q) ||
-                            ev.venue.toLowerCase().includes(q);
-      if (!matchesSearch) return false;
-    }
-    
-    if (isHomepage) {
-      return ev.status === 'registration_open' || ev.status === 'upcoming';
-    }
-
-    if (activeTab === 'upcoming') {
-      return ev.status === 'registration_open' || ev.status === 'upcoming';
-    } else if (activeTab === 'past') {
-      return ev.status === 'completed' || ev.status === 'registration_closed';
-    } else if (activeTab === 'workshops') {
-      return ev.category.toLowerCase().includes('workshop');
-    }
-    return true;
-  });
-
-  const displayedUpcomingEvents = isHomepage ? filteredEvents.slice(0, 2) : filteredEvents;
-
-  // Filter past events by search on the dedicated page
-  const filteredPastEvents = pastEvents.filter(ev => {
-    if (pastSearchQuery.trim() === '') return true;
-    const q = pastSearchQuery.toLowerCase();
-    return ev.title.toLowerCase().includes(q) ||
-           ev.description.toLowerCase().includes(q) ||
-           ev.category.toLowerCase().includes(q) ||
-           (ev.speaker && ev.speaker.toLowerCase().includes(q));
-  });
+  // Featured event for the countdown banner
+  const featured = eventCards.upcoming[0];
 
   return (
     <section id="events" className="relative z-[1] max-w-[1200px] mx-auto px-6 md:px-12 py-24">

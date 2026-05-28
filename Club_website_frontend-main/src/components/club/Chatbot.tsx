@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { MessageSquare, X, Send, Bot, User, Loader2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getApiUrl } from '@/lib/utils';
 
 interface Message {
   sender: 'user' | 'bot';
@@ -37,8 +38,7 @@ export default function Chatbot() {
     setInputValue('');
     setIsLoading(true);
     try {
-      const apiUrl = `${import.meta.env.PROD ? '' : 'http://localhost:8000'}/api/club-chat`;
-      const res = await fetch(apiUrl, {
+      const res = await fetch(getApiUrl('/api/club-chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text }),
