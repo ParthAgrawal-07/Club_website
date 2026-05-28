@@ -56,18 +56,8 @@ export default function Hero() {
       </motion.div>
 
       <motion.div variants={containerVariants} initial="hidden" animate="visible">
-        {/* Badge */}
-        <motion.div
-          variants={itemVariants}
-          className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-mono mb-8"
-          style={{ background: 'hsl(340 82% 55% / 0.12)', border: '1px solid hsl(340 82% 55% / 0.35)', color: 'hsl(340 82% 68%)' }}
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-current" style={{ animation: 'pulse-dot 2s infinite' }} />
-          Recruitment Closed · Opening Soon
-        </motion.div>
-
         {/* Logo + Club name lockup */}
-        <motion.div variants={itemVariants} className="flex items-center gap-4 mb-6">
+        <motion.div variants={itemVariants} className="flex items-center gap-4 mb-6 mt-8">
           <img
             src={aiClubLogo}
             alt="AI Club DAU Logo"
@@ -116,17 +106,8 @@ export default function Hero() {
         {/* Buttons */}
         <motion.div variants={itemVariants} className="flex flex-wrap gap-4">
           <motion.a
-            href="#join"
-            className="px-7 py-3.5 rounded-lg text-sm font-semibold border transition-all inline-flex items-center gap-2"
-            style={{ background: 'hsl(340 82% 55% / 0.1)', border: '1px solid hsl(340 82% 55% / 0.35)', color: 'hsl(340 82% 68%)' }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.97 }}
-          >
-            🔒 Recruitment Closed
-          </motion.a>
-          <motion.a
             href="#projects"
-            className="px-7 py-3.5 rounded-lg text-sm font-semibold text-foreground border border-border bg-transparent hover:border-primary hover:bg-primary/5 transition-all inline-flex items-center gap-2"
+            className="px-7 py-3.5 rounded-lg text-sm font-semibold text-primary-foreground border border-primary bg-primary hover:bg-primary/95 transition-all inline-flex items-center gap-2 btn-glow"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.97 }}
           >
