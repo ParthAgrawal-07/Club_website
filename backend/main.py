@@ -59,7 +59,8 @@ else:
         "http://localhost:3000",
         "https://aiclubdau.vercel.app",
         "https://club-website-7aay.vercel.app",
-        "https://club-website-eta.vercel.app"
+        "https://club-website-eta.vercel.app",
+        "https://club-website-blush.vercel.app"
     ]
 
 app.add_middleware(
@@ -92,7 +93,7 @@ async def keep_alive_task():
     Pings the API itself every 14 minutes and 50 seconds to prevent
     Render free tier from spinning down the instance.
     """
-    url = "https://ai-club-website-e0u3.onrender.com/docs"
+    url = "https://club-website-ehct.onrender.com/docs"
     while True:
         await asyncio.sleep(890)  # 14 minutes and 50 seconds
         try:

@@ -10,6 +10,7 @@ import Admin from "./pages/Admin.tsx";
 import EventsPage from "./pages/EventsPage.tsx";
 import ProjectsPage from "./pages/ProjectsPage.tsx";
 import TeamPage from "./pages/TeamPage.tsx";
+import AuthBarrier from "./components/AuthBarrier.tsx";
 
 const queryClient = new QueryClient();
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
@@ -21,15 +22,17 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/events" element={<EventsPage />} />
-            <Route path="/projects" element={<ProjectsPage />} />
-            <Route path="/team" element={<TeamPage />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AuthBarrier>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/events" element={<EventsPage />} />
+              <Route path="/projects" element={<ProjectsPage />} />
+              <Route path="/team" element={<TeamPage />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthBarrier>
         </BrowserRouter>
       </TooltipProvider>
 
