@@ -298,8 +298,7 @@ export default function Events({ isHomepage = false }: { isHomepage?: boolean })
     workshops: staticEventCards.workshops,
   };
 
-  // Featured event for the countdown banner
-  const featured = eventCards.upcoming[0];
+  // Featured event for the countdown banner is set at line 148 (uses live API data)
 
   return (
     <section id="events" className="relative z-[1] max-w-[1200px] mx-auto px-6 md:px-12 py-24">
