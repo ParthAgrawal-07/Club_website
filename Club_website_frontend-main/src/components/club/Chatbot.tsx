@@ -9,7 +9,7 @@ interface Message {
 
 const SUGGESTED_QUESTIONS = [
   'What events did the club host?',
-  'How do I join AI Club?',
+  'Who convens the club?',
   'Who are the club members?',
 ];
 
@@ -19,7 +19,7 @@ export default function Chatbot() {
   const [messages, setMessages] = useState<Message[]>([
     {
       sender: 'bot',
-      text: "Hey there! 👋 I'm NeuralNode, AI Club DAU's assistant. Ask me anything about the club, events, members, or how to join!",
+      text: "Hey there! 👋 I'm NeuralNode, AI Club DAU's assistant. Ask me anything about the club, events, projects, or our members!",
     },
   ]);
   const [isLoading, setIsLoading] = useState(false);
